@@ -14,7 +14,7 @@ The exporter follows the same core idea used by [agarwalvishal/claude-chat-expor
 - Shows an in-page health badge (`PENDING`, `HEALTHY`, `WARNING`, `ERROR`) after verification runs.
 - Captures assistant turns via native copy actions where available.
 - Captures user turns via edit-textarea extraction first, then text fallback.
-- Downloads a Markdown file with title, source URL, timestamp, and XML-style turn markers with fenced message bodies.
+- Downloads a Markdown file with title, source URL, timestamp, and XML-style turn markers with raw message bodies.
 
 ## Setup
 

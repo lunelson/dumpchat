@@ -90,6 +90,7 @@ const HEALTH_BADGE_ID = 'chat-thread-exporter-health-badge';
 const POLL_MS = 1200;
 const DIAGNOSTICS_SCHEMA_NAME = 'chat-export-diagnostics';
 const DIAGNOSTICS_SCHEMA_VERSION = '1.0.0';
+const ENABLE_DEDUP_CLASSIFICATION = false;
 
 const SITE_CONFIG: Record<Site, SiteConfig> = {
   chatgpt: {
@@ -115,9 +116,8 @@ const SITE_CONFIG: Record<Site, SiteConfig> = {
     conversationPath: /^\/chat\//,
     userMessageSelector: '[data-testid="user-message"], [data-testid="message-user"]',
     assistantMessageSelector:
-      '[data-testid="assistant-message"], [data-testid="message-assistant"]',
-    copyButtonSelector:
-      'button[data-testid="action-bar-copy"], button[aria-label*="Copy"], button[aria-label*="copy"]',
+      '.font-claude-response, [data-testid="assistant-message"], [data-testid="message-assistant"]',
+    copyButtonSelector: 'button[data-testid="action-bar-copy"]',
     editButtonSelector: 'button[aria-label="Edit"], button[aria-label*="Edit"]',
     editTextareaSelector: 'textarea',
     messageGroupSelector: '.group, [data-testid="chat-message"]'
@@ -361,8 +361,9 @@ async function buildMarkdown(
   for (let i = 0; i < turnCount; i += 1) {
     const user = data.users[i];
     const assistant = data.assistants[i];
-    if (user) chunks.push(formatTurnSection(i + 1, 'User', user));
-    if (assistant) chunks.push(formatTurnSection(i + 1, 'Assistant', assistant));
+    if (user) chunks.push(formatTurnSection(i + 1, 'User', user, location.href));
+    if (assistant)
+      chunks.push(formatTurnSection(i + 1, 'Assistant', assistant, location.href));
   }
 
   const markdown = [
@@ -371,7 +372,7 @@ async function buildMarkdown(
     `- Source: ${site}`,
     `- URL: ${location.href}`,
     `- Exported: ${data.exportedAt}`,
-    '- Format: XML-style turn markers with fenced markdown bodies',
+    '- Format: XML-style turn markers with raw markdown bodies',
     '',
     chunks.join('\n\n')
   ].join('\n');
@@ -384,6 +385,14 @@ async function buildMarkdown(
 
 async function collectExportData(site: Site): Promise<ExportData> {
   const config = SITE_CONFIG[site];
+
+  if (site === 'chatgpt') {
+    return await collectChatGptExportData(config, site);
+  }
+  if (site === 'claude') {
+    return await collectClaudeExportData(config, site);
+  }
+
   const userNodes = getVisibleUserNodes(config);
   const users: string[] = [];
 
@@ -394,9 +403,9 @@ async function collectExportData(site: Site): Promise<ExportData> {
 
   const assistantResult = await extractAssistantMessages(config, users);
   const title = readTitle(config) || `${site} conversation`;
-  const usersWithCopyFormatting = users.map(
-    (value, index) => assistantResult.userCopies[index] || value
-  );
+  const usersWithCopyFormatting = ENABLE_DEDUP_CLASSIFICATION
+    ? users.map((value, index) => assistantResult.userCopies[index] || value)
+    : users;
 
   return {
     title,
@@ -404,6 +413,173 @@ async function collectExportData(site: Site): Promise<ExportData> {
     users: usersWithCopyFormatting,
     assistants: assistantResult.messages,
     assistantDebug: assistantResult.debug
+  };
+}
+
+async function collectChatGptExportData(
+  config: SiteConfig,
+  site: Site
+): Promise<ExportData> {
+  const turnContainers = getVisibleTurnContainers(config);
+  const userTurns = turnContainers.filter((turn) => turn.dataset.turn === 'user');
+  const assistantTurns = turnContainers.filter(
+    (turn) => turn.dataset.turn === 'assistant'
+  );
+
+  const users = userTurns
+    .map((turn) => extractUserTextFromTurn(turn, config))
+    .filter((value) => !!value);
+
+  const allCopyButtons = uniqueElements(
+    toElements<HTMLButtonElement>(config.copyButtonSelector).filter((el) => isVisible(el))
+  );
+  const assistantButtons = assistantTurns
+    .map((turn) => turn.querySelector<HTMLButtonElement>(config.copyButtonSelector))
+    .filter((button): button is HTMLButtonElement => !!button && isVisible(button));
+
+  const captured: string[] = [];
+  const stopIntercept = interceptClipboard((text) => {
+    const normalized = normalizeText(text);
+    if (normalized) captured.push(normalized);
+  });
+
+  try {
+    for (const button of assistantButtons) {
+      const before = captured.length;
+      hover(button);
+      button.click();
+      await waitFor(() => captured.length > before, 900, 60);
+    }
+  } finally {
+    stopIntercept();
+  }
+
+  let usedFallbackCount = 0;
+  let fromButtonFallbackCount = 0;
+  const assistants = assistantTurns.map((turn, idx) => {
+    const copied = captured[idx] || '';
+    if (copied) return copied;
+
+    const domFallback = extractAssistantTextFromTurn(turn, config);
+    if (domFallback) {
+      usedFallbackCount += 1;
+      return domFallback;
+    }
+
+    const button = assistantButtons[idx];
+    const buttonFallback = button ? extractAssistantTextFromCopyButton(button) : '';
+    if (buttonFallback) {
+      usedFallbackCount += 1;
+      fromButtonFallbackCount += 1;
+    }
+    return buttonFallback;
+  });
+
+  const title = readTitle(config) || `${site} conversation`;
+  return {
+    title,
+    exportedAt: new Date().toISOString(),
+    users,
+    assistants: assistants.filter((value) => !!value),
+    assistantDebug: {
+      copyButtonsTotal: allCopyButtons.length,
+      copyButtonsVisible: allCopyButtons.length,
+      copyButtonsAfterUserFilter: assistantButtons.length,
+      clipboardCaptures: captured.length,
+      filteredByRoleHintCount: Math.max(0, allCopyButtons.length - assistantButtons.length),
+      fallbackCount: assistantTurns.length,
+      usedFallbackCount,
+      fromButtonFallbackCount,
+      filteredAsUserMatchCount: 0,
+      userCopyReplacementsCount: 0,
+      emptyCount: assistants.filter((value) => !value).length
+    }
+  };
+}
+
+type ClaudeTurn = {
+  root: HTMLElement;
+  role: 'user' | 'assistant';
+  copyButton: HTMLButtonElement | null;
+};
+
+async function collectClaudeExportData(
+  config: SiteConfig,
+  site: Site
+): Promise<ExportData> {
+  const turns = getClaudeTurns(config);
+  const allCopyButtons = uniqueElements(
+    toElements<HTMLButtonElement>(config.copyButtonSelector).filter((button) =>
+      isVisible(button)
+    )
+  );
+
+  const captured: string[] = [];
+  const copiedByTurn = new Map<number, string>();
+  const stopIntercept = interceptClipboard((text) => {
+    const normalized = normalizeText(text);
+    if (normalized) captured.push(normalized);
+  });
+
+  try {
+    for (let idx = 0; idx < turns.length; idx += 1) {
+      const button = turns[idx].copyButton;
+      if (!button) continue;
+
+      const before = captured.length;
+      hover(button);
+      button.click();
+      await waitFor(() => captured.length > before, 900, 60);
+      const copied = captured[before] || '';
+      if (copied) copiedByTurn.set(idx, copied);
+    }
+  } finally {
+    stopIntercept();
+  }
+
+  const users: string[] = [];
+  const assistants: string[] = [];
+  let usedFallbackCount = 0;
+
+  for (let idx = 0; idx < turns.length; idx += 1) {
+    const turn = turns[idx];
+    const copied = copiedByTurn.get(idx) || '';
+
+    if (turn.role === 'user') {
+      const fallback = extractClaudeUserText(turn.root);
+      const value = copied || fallback;
+      if (value) users.push(value);
+      continue;
+    }
+
+    const fallback = extractClaudeAssistantText(turn.root);
+    const value = copied || fallback;
+    if (!copied && fallback) usedFallbackCount += 1;
+    if (value) assistants.push(value);
+  }
+
+  const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+  const userTurns = turns.filter((turn) => turn.role === 'user');
+  const title = readTitle(config) || `${site} conversation`;
+
+  return {
+    title,
+    exportedAt: new Date().toISOString(),
+    users,
+    assistants,
+    assistantDebug: {
+      copyButtonsTotal: allCopyButtons.length,
+      copyButtonsVisible: allCopyButtons.length,
+      copyButtonsAfterUserFilter: assistantTurns.filter((turn) => !!turn.copyButton).length,
+      clipboardCaptures: captured.length,
+      filteredByRoleHintCount: userTurns.filter((turn) => !!turn.copyButton).length,
+      fallbackCount: assistantTurns.length,
+      usedFallbackCount,
+      fromButtonFallbackCount: 0,
+      filteredAsUserMatchCount: 0,
+      userCopyReplacementsCount: 0,
+      emptyCount: assistantTurns.length - assistants.length
+    }
   };
 }
 
@@ -523,27 +699,23 @@ function deriveHealthStatus(input: {
 function formatTurnSection(
   turnNumber: number,
   role: 'User' | 'Assistant',
-  content: string
+  content: string,
+  sourceUrl: string
 ): string {
   const index = String(turnNumber).padStart(3, '0');
-  const openingTag = `&lt;turn index="${index}" role="${role.toLowerCase()}"&gt;`;
-  const closingTag = '&lt;/turn&gt;';
-  return [openingTag, renderFencedMarkdown(content), closingTag].join('\n\n');
+  const openingTag = `<turn index="${index}" role="${role.toLowerCase()}" url="${escapeXmlAttribute(
+    sourceUrl
+  )}">`;
+  const closingTag = '</turn>';
+  return [openingTag, normalizeText(content), closingTag].join('\n\n');
 }
 
-function renderFencedMarkdown(content: string): string {
-  const normalized = normalizeText(content);
-  const fence = pickFence(normalized);
-  return `${fence}markdown\n${normalized}\n${fence}`;
-}
-
-function pickFence(content: string): string {
-  const runs = content.match(/`+/g) || [];
-  let maxRunLength = 2;
-  for (const run of runs) {
-    if (run.length > maxRunLength) maxRunLength = run.length;
-  }
-  return '`'.repeat(Math.max(3, maxRunLength + 1));
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function readTitle(config: SiteConfig): string {
@@ -594,6 +766,97 @@ async function tryExtractFromEdit(
   dispatchEscape(document.body);
   await wait(80);
   return value;
+}
+
+function extractUserTextFromTurn(turn: HTMLElement, config: SiteConfig): string {
+  const textarea = turn.querySelector<HTMLTextAreaElement>('textarea');
+  if (textarea) {
+    const value = normalizeText(textarea.value);
+    if (value) return value;
+  }
+
+  const richText = turn.querySelector<HTMLElement>(
+    '[data-message-author-role="user"] .whitespace-pre-wrap'
+  );
+  if (richText) {
+    const value = normalizeText(richText.innerText || richText.textContent || '');
+    if (value) return value;
+  }
+
+  const userNode = turn.querySelector<HTMLElement>(config.userMessageSelector);
+  return normalizeText(userNode?.innerText || userNode?.textContent || '');
+}
+
+function extractAssistantTextFromTurn(turn: HTMLElement, config: SiteConfig): string {
+  const assistantNode = turn.querySelector<HTMLElement>(config.assistantMessageSelector);
+  if (!assistantNode) return '';
+
+  const content = assistantNode.querySelector<HTMLElement>(
+    '.markdown, .prose, [class*="markdown"], [class*="prose"]'
+  );
+  return normalizeText(
+    content?.innerText || content?.textContent || assistantNode.innerText || assistantNode.textContent || ''
+  );
+}
+
+function getClaudeTurns(config: SiteConfig): ClaudeTurn[] {
+  const roots = uniqueElements(
+    toElements<HTMLElement>('div[data-test-render-count]').filter((root) =>
+      isVisible(root)
+    )
+  );
+
+  const turns = roots
+    .map((root) => {
+      const role = detectClaudeTurnRole(root);
+      if (role === 'unknown') return null;
+      const copyButton =
+        root.querySelector<HTMLButtonElement>(config.copyButtonSelector);
+      return { root, role, copyButton };
+    })
+    .filter((turn): turn is ClaudeTurn => !!turn);
+
+  return turns;
+}
+
+function detectClaudeTurnRole(root: HTMLElement): CopyButtonRoleHint {
+  const hasUser = !!root.querySelector('[data-testid="user-message"], [data-testid="message-user"]');
+  const hasAssistant = !!root.querySelector(
+    '.font-claude-response, [data-testid="assistant-message"], [data-testid="message-assistant"]'
+  );
+
+  if (hasUser && !hasAssistant) return 'user';
+  if (hasAssistant && !hasUser) return 'assistant';
+  return 'unknown';
+}
+
+function extractClaudeUserText(root: HTMLElement): string {
+  const node = root.querySelector<HTMLElement>(
+    '[data-testid="user-message"], [data-testid="message-user"]'
+  );
+  return normalizeText(node?.innerText || node?.textContent || '');
+}
+
+function extractClaudeAssistantText(root: HTMLElement): string {
+  const preferred = root.querySelector<HTMLElement>(
+    '.row-start-2 .standard-markdown'
+  );
+  if (preferred) {
+    const value = normalizeText(preferred.innerText || preferred.textContent || '');
+    if (value) return value;
+  }
+
+  const candidates = Array.from(
+    root.querySelectorAll<HTMLElement>('.font-claude-response .standard-markdown')
+  )
+    .map((node) => normalizeText(node.innerText || node.textContent || ''))
+    .filter((value) => !!value)
+    .sort((a, b) => b.length - a.length);
+
+  if (candidates[0]) return candidates[0];
+
+  const container = root.querySelector<HTMLElement>('.font-claude-response');
+  return normalizeText(container?.innerText || container?.textContent || '');
 }
 
 function detectCopyButtonRoleHint(
@@ -691,6 +954,27 @@ async function extractAssistantMessages(
     }
     return value;
   });
+
+  if (!ENABLE_DEDUP_CLASSIFICATION) {
+    const messages = rawMessages.filter((value) => !!value);
+    return {
+      messages,
+      userCopies: [],
+      debug: {
+        copyButtonsTotal: allButtons.length,
+        copyButtonsVisible: visibleButtons.length,
+        copyButtonsAfterUserFilter: visibleButtons.length,
+        clipboardCaptures: captured.length,
+        filteredByRoleHintCount: 0,
+        fallbackCount: fallback.length,
+        usedFallbackCount,
+        fromButtonFallbackCount,
+        filteredAsUserMatchCount: 0,
+        userCopyReplacementsCount: 0,
+        emptyCount: messages.filter((value) => !value).length
+      }
+    };
+  }
 
   const userCanonical = users.map(toCanonicalText);
   const userCopyMatches = new Array<string>(users.length);
@@ -891,6 +1175,14 @@ function getVisibleUserNodes(config: SiteConfig): HTMLElement[] {
   });
 
   return uniqueElements(grouped);
+}
+
+function getVisibleTurnContainers(config: SiteConfig): HTMLElement[] {
+  return uniqueElements(
+    toElements<HTMLElement>(config.messageGroupSelector).filter(
+      (node) => isVisible(node) && !!node.dataset.turn
+    )
+  );
 }
 
 function normalizeText(value: string): string {
