@@ -14,9 +14,13 @@
     "zip": "wxt zip",
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
-    "zip:all": "npm run zip:chrome && npm run zip:firefox"
+    "zip:all": "npm run zip:chrome && npm run zip:firefox",
+    "release": "release-it",
+    "release:ci": "release-it --ci",
+    "release:dry": "release-it --dry-run --no-github.release"
   },
   "devDependencies": {
+    "release-it": "^19.2.4",
     "typescript": "^5.7.3",
     "wxt": "^0.20.6"
   }

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/release-it@19/schema/release-it.json",
+  "git": {
+    "requireBranch": "main",
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}"
+  },
+  "npm": {
+    "publish": false
+  },
+  "github": {
+    "release": true,
+    "assets": [
+      ".output/dumpchat-${version}-chrome.zip",
+      ".output/dumpchat-${version}-firefox.zip",
+      ".output/dumpchat-${version}-sources.zip"
+    ]
+  },
+  "hooks": {
+    "after:bump": "npm run zip:all"
+  }
+}

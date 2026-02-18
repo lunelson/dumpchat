@@ -81,10 +81,32 @@ Note: temporary Firefox add-ons are removed when Firefox restarts.
 
 ## Sharing Releases (Without Extension Stores)
 
-1. Bump `version` in `package.json`.
-2. Run `npm run zip:all`.
-3. Create a GitHub Release and upload both zip files from `.output/`.
-4. Share install steps from this README.
+`release-it` is configured in `.release-it.json` to:
+
+- bump `package.json` version
+- create a release commit + git tag
+- build and zip both browser targets (`after:bump` hook runs `npm run zip:all`)
+- create a GitHub Release and attach zip assets from `.output/`
+
+Run an interactive release:
+
+```bash
+npm run release
+```
+
+Or CI/non-interactive mode:
+
+```bash
+npm run release:ci
+```
+
+Dry run (no GitHub release API call):
+
+```bash
+npm run release:dry
+```
+
+If `GITHUB_TOKEN` is not set, release-it falls back to manual GitHub release flow in the browser.
 
 For end users, installation is still developer-style (`Load unpacked` on Chromium, `Load Temporary Add-on` on Firefox).
 
