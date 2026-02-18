@@ -15,6 +15,9 @@
     "dev": "wxt",
     "dev:chrome": "wxt -b chrome",
     "dev:firefox": "wxt -b firefox",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "build": "wxt build",
     "build:chrome": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox",
@@ -28,8 +31,11 @@
     "release:dry": "release-it --dry-run --no-github.release"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
+    "jsdom": "^28.1.0",
     "release-it": "^19.2.4",
     "typescript": "^5.7.3",
+    "vitest": "^4.0.18",
     "wxt": "^0.20.6"
   }
 }
