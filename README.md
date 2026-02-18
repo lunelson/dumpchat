@@ -22,20 +22,67 @@ This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.
    ```bash
    npm install
    ```
-2. Start dev mode:
+2. Start dev mode (optional):
    ```bash
    npm run dev
    ```
-3. Load the generated extension build in your browser.
+   - Chrome target: `npm run dev:chrome`
+   - Firefox target: `npm run dev:firefox`
 
-## Build
+## Build Packages
+
+Build and zip for both browsers:
 
 ```bash
-npm run build
-npm run zip
+npm run zip:all
 ```
 
-## Verification harness
+Or per browser:
+
+```bash
+npm run zip:chrome
+npm run zip:firefox
+```
+
+Generated files are written to `.output/`, for example:
+
+- `dumpchat-<version>-chrome.zip`
+- `dumpchat-<version>-firefox.zip`
+- `dumpchat-<version>-sources.zip` (generated alongside Firefox package)
+
+## Dev Install: Chrome / Chromium
+
+1. Build Chrome output:
+   ```bash
+   npm run build:chrome
+   ```
+2. Open `chrome://extensions` (or `edge://extensions`).
+3. Enable `Developer mode`.
+4. Click `Load unpacked`.
+5. Select the folder `.output/chrome-mv3`.
+
+## Dev Install: Firefox (Temporary)
+
+1. Build Firefox output:
+   ```bash
+   npm run build:firefox
+   ```
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Click `Load Temporary Add-on...`.
+4. Pick the built manifest file in `.output/firefox-mv2/manifest.json`.
+
+Note: temporary Firefox add-ons are removed when Firefox restarts.
+
+## Sharing Releases (Without Extension Stores)
+
+1. Bump `version` in `package.json`.
+2. Run `npm run zip:all`.
+3. Create a GitHub Release and upload both zip files from `.output/`.
+4. Share install steps from this README.
+
+For end users, installation is still developer-style (`Load unpacked` on Chromium, `Load Temporary Add-on` on Firefox).
+
+## Verification Harness
 
 Use this whenever an export is missing content.
 
@@ -53,7 +100,7 @@ Use this whenever an export is missing content.
 
 This gives a deterministic snapshot of what the exporter could and could not read from that exact page state.
 
-## Entry point
+## Entry Point
 
 - `/Users/lunelson/Code/lunelson/dumpchat/entrypoints/chat-export.content.ts`
 

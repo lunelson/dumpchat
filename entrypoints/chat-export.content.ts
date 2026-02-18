@@ -27,12 +27,6 @@ type AssistantExtractionDebug = {
 
 type CopyButtonRoleHint = 'user' | 'assistant' | 'unknown';
 
-type AssistantExtractionResult = {
-  messages: string[];
-  userCopies: string[];
-  debug: AssistantExtractionDebug;
-};
-
 type ExportData = {
   title: string;
   exportedAt: string;
@@ -90,7 +84,6 @@ const HEALTH_BADGE_ID = 'dumpchat-health-badge';
 const POLL_MS = 1200;
 const DIAGNOSTICS_SCHEMA_NAME = 'chat-export-diagnostics';
 const DIAGNOSTICS_SCHEMA_VERSION = '1.0.0';
-const ENABLE_DEDUP_CLASSIFICATION = false;
 
 const SITE_CONFIG: Record<Site, SiteConfig> = {
   chatgpt: {
@@ -389,31 +382,7 @@ async function collectExportData(site: Site): Promise<ExportData> {
   if (site === 'chatgpt') {
     return await collectChatGptExportData(config, site);
   }
-  if (site === 'claude') {
-    return await collectClaudeExportData(config, site);
-  }
-
-  const userNodes = getVisibleUserNodes(config);
-  const users: string[] = [];
-
-  for (const node of userNodes) {
-    const value = await extractUserMessage(node, config);
-    if (value) users.push(value);
-  }
-
-  const assistantResult = await extractAssistantMessages(config, users);
-  const title = readTitle(config) || `${site} conversation`;
-  const usersWithCopyFormatting = ENABLE_DEDUP_CLASSIFICATION
-    ? users.map((value, index) => assistantResult.userCopies[index] || value)
-    : users;
-
-  return {
-    title,
-    exportedAt: new Date().toISOString(),
-    users: usersWithCopyFormatting,
-    assistants: assistantResult.messages,
-    assistantDebug: assistantResult.debug
-  };
+  return await collectClaudeExportData(config, site);
 }
 
 async function collectChatGptExportData(
@@ -727,47 +696,6 @@ function readTitle(config: SiteConfig): string {
   return '';
 }
 
-async function extractUserMessage(
-  node: HTMLElement,
-  config: SiteConfig
-): Promise<string> {
-  const fromEdit = await tryExtractFromEdit(node, config);
-  if (fromEdit) return fromEdit;
-  return normalizeText(node.innerText || node.textContent || '');
-}
-
-async function tryExtractFromEdit(
-  node: HTMLElement,
-  config: SiteConfig
-): Promise<string> {
-  const root = (node.closest(config.messageGroupSelector) ?? node) as HTMLElement;
-  hover(root);
-  hover(node);
-
-  const editButton =
-    root.querySelector<HTMLButtonElement>(config.editButtonSelector) ??
-    node.querySelector<HTMLButtonElement>(config.editButtonSelector);
-
-  if (!editButton) return '';
-
-  editButton.click();
-  await wait(120);
-
-  const textarea = document.querySelector<HTMLTextAreaElement>(
-    config.editTextareaSelector
-  );
-  if (!textarea) {
-    dispatchEscape(document.body);
-    return '';
-  }
-
-  const value = normalizeText(textarea.value);
-  dispatchEscape(textarea);
-  dispatchEscape(document.body);
-  await wait(80);
-  return value;
-}
-
 function extractUserTextFromTurn(turn: HTMLElement, config: SiteConfig): string {
   const textarea = turn.querySelector<HTMLTextAreaElement>('textarea');
   if (textarea) {
@@ -857,177 +785,6 @@ function extractClaudeAssistantText(root: HTMLElement): string {
 
   const container = root.querySelector<HTMLElement>('.font-claude-response');
   return normalizeText(container?.innerText || container?.textContent || '');
-}
-
-function detectCopyButtonRoleHint(
-  button: HTMLButtonElement,
-  config: SiteConfig
-): CopyButtonRoleHint {
-  const directUser = button.closest(config.userMessageSelector);
-  const directAssistant = button.closest(config.assistantMessageSelector);
-  if (directUser && !directAssistant) return 'user';
-  if (directAssistant && !directUser) return 'assistant';
-
-  const group = button.closest(config.messageGroupSelector);
-  if (group instanceof HTMLElement) {
-    const groupIsUser = group.matches(config.userMessageSelector);
-    const groupHasUser = !!group.querySelector(config.userMessageSelector);
-    const groupIsAssistant = group.matches(config.assistantMessageSelector);
-    const groupHasAssistant = !!group.querySelector(config.assistantMessageSelector);
-
-    if ((groupIsUser || groupHasUser) && !(groupIsAssistant || groupHasAssistant)) {
-      return 'user';
-    }
-    if ((groupIsAssistant || groupHasAssistant) && !(groupIsUser || groupHasUser)) {
-      return 'assistant';
-    }
-  }
-
-  return 'unknown';
-}
-
-async function extractAssistantMessages(
-  config: SiteConfig,
-  users: string[]
-): Promise<AssistantExtractionResult> {
-  const allButtons = uniqueElements(toElements<HTMLButtonElement>(config.copyButtonSelector));
-  const visibleButtons = allButtons.filter((el) => isVisible(el));
-  const roleHints = visibleButtons.map((button) =>
-    detectCopyButtonRoleHint(button, config)
-  );
-  const nonUserButtonCount = roleHints.filter((hint) => hint !== 'user').length;
-  const assistantButtons = visibleButtons;
-  const fallback = toElements<HTMLElement>(config.assistantMessageSelector).map((node) =>
-    normalizeText(node.innerText || node.textContent || '')
-  );
-
-  if (assistantButtons.length === 0) {
-    return {
-      messages: fallback,
-      userCopies: [],
-      debug: {
-        copyButtonsTotal: allButtons.length,
-        copyButtonsVisible: visibleButtons.length,
-        copyButtonsAfterUserFilter: 0,
-        clipboardCaptures: 0,
-        filteredByRoleHintCount: 0,
-        fallbackCount: fallback.length,
-        usedFallbackCount: fallback.length,
-        fromButtonFallbackCount: 0,
-        filteredAsUserMatchCount: 0,
-        userCopyReplacementsCount: 0,
-        emptyCount: fallback.filter((value) => !value).length
-      }
-    };
-  }
-
-  const captured: string[] = [];
-  const stopIntercept = interceptClipboard((text) => {
-    const normalized = normalizeText(text);
-    if (normalized) captured.push(normalized);
-  });
-
-  try {
-    for (const button of assistantButtons) {
-      hover(button);
-      button.click();
-      await wait(220);
-    }
-    await waitFor(() => captured.length >= assistantButtons.length, 3000, 100);
-  } finally {
-    stopIntercept();
-  }
-
-  let usedFallbackCount = 0;
-  let fromButtonFallbackCount = 0;
-  let filteredByRoleHintCount = 0;
-  const rawMessages = assistantButtons.map((_, idx) => {
-    const copied = captured[idx] || '';
-    const selectorFallback = fallback[idx] || '';
-    const buttonFallback = extractAssistantTextFromCopyButton(assistantButtons[idx]);
-    const value = copied || selectorFallback || buttonFallback || '';
-    if (!copied && (selectorFallback || buttonFallback)) {
-      usedFallbackCount += 1;
-    }
-    if (!copied && !selectorFallback && buttonFallback) {
-      fromButtonFallbackCount += 1;
-    }
-    return value;
-  });
-
-  if (!ENABLE_DEDUP_CLASSIFICATION) {
-    const messages = rawMessages.filter((value) => !!value);
-    return {
-      messages,
-      userCopies: [],
-      debug: {
-        copyButtonsTotal: allButtons.length,
-        copyButtonsVisible: visibleButtons.length,
-        copyButtonsAfterUserFilter: visibleButtons.length,
-        clipboardCaptures: captured.length,
-        filteredByRoleHintCount: 0,
-        fallbackCount: fallback.length,
-        usedFallbackCount,
-        fromButtonFallbackCount,
-        filteredAsUserMatchCount: 0,
-        userCopyReplacementsCount: 0,
-        emptyCount: messages.filter((value) => !value).length
-      }
-    };
-  }
-
-  const userCanonical = users.map(toCanonicalText);
-  const userCopyMatches = new Array<string>(users.length);
-  let filteredAsUserMatchCount = 0;
-  const messages: string[] = [];
-  for (let idx = 0; idx < rawMessages.length; idx += 1) {
-    const value = rawMessages[idx];
-    if (!value) continue;
-
-    const hint = roleHints[idx];
-    const canonical = toCanonicalText(value);
-    const matchedUserIndex = canonical
-      ? userCanonical.findIndex(
-          (candidate, userIdx) => candidate === canonical && !userCopyMatches[userIdx]
-        )
-      : -1;
-
-    if (hint === 'user') {
-      filteredByRoleHintCount += 1;
-      if (matchedUserIndex !== -1) {
-        userCopyMatches[matchedUserIndex] = value;
-        filteredAsUserMatchCount += 1;
-      }
-      continue;
-    }
-
-    if (matchedUserIndex !== -1) {
-      userCopyMatches[matchedUserIndex] = value;
-      filteredAsUserMatchCount += 1;
-      continue;
-    }
-
-    messages.push(value);
-  }
-  const userCopyReplacementsCount = userCopyMatches.filter(Boolean).length;
-
-  return {
-    messages,
-    userCopies: userCopyMatches,
-    debug: {
-      copyButtonsTotal: allButtons.length,
-      copyButtonsVisible: visibleButtons.length,
-      copyButtonsAfterUserFilter: nonUserButtonCount,
-      clipboardCaptures: captured.length,
-      filteredByRoleHintCount,
-      fallbackCount: fallback.length,
-      usedFallbackCount,
-      fromButtonFallbackCount,
-      filteredAsUserMatchCount,
-      userCopyReplacementsCount,
-      emptyCount: messages.filter((value) => !value).length
-    }
-  };
 }
 
 function extractAssistantTextFromCopyButton(button: HTMLButtonElement): string {
@@ -1189,28 +946,6 @@ function normalizeText(value: string): string {
   return value.replace(/\r\n/g, '\n').trim();
 }
 
-function toCanonicalText(value: string): string {
-  const normalized = normalizeText(value)
-    .split('\n')
-    .map((line) => line.replace(/^\s*>\s?/, '').trim())
-    .filter((line) => line.length > 0)
-    .join('\n')
-    .replace(/^(user|human)\s*:\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .trim();
-
-  if (
-    (normalized.startsWith('"') && normalized.endsWith('"')) ||
-    (normalized.startsWith("'") && normalized.endsWith("'")) ||
-    (normalized.startsWith('“') && normalized.endsWith('”'))
-  ) {
-    return normalized.slice(1, -1).trim();
-  }
-
-  return normalized;
-}
-
 function cleanActionLabels(value: string): string {
   return value
     .split('\n')
@@ -1228,16 +963,6 @@ function cleanActionLabels(value: string): string {
 function hover(node: HTMLElement): void {
   node.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
   node.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-}
-
-function dispatchEscape(target: HTMLElement): void {
-  target.dispatchEvent(
-    new KeyboardEvent('keydown', {
-      key: 'Escape',
-      bubbles: true,
-      cancelable: true
-    })
-  );
 }
 
 function isVisible(node: HTMLElement): boolean {
