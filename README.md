@@ -31,6 +31,12 @@ This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.
 
 ## Build Packages
 
+Build unpacked outputs for both browsers (useful for local verification):
+
+```bash
+npm run build:all
+```
+
 Build and zip for both browsers:
 
 ```bash
@@ -102,7 +108,7 @@ This gives a deterministic snapshot of what the exporter could and could not rea
 
 ## Entry Point
 
-- `/Users/lunelson/Code/lunelson/dumpchat/entrypoints/chat-export.content.ts`
+- `/Users/lunelson/Code/lunelson/dumpchat/entrypoints/dumpchat.content.ts`
 
 ## Notes
 

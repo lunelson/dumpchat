@@ -10,6 +10,7 @@
     "build": "wxt build",
     "build:chrome": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox",
+    "build:all": "npm run build:chrome && npm run build:firefox",
     "zip": "wxt zip",
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
