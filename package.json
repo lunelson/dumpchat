@@ -3,6 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lunelson/dumpchat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lunelson/dumpchat/issues"
+  },
+  "homepage": "https://github.com/lunelson/dumpchat#readme",
   "scripts": {
     "dev": "wxt",
     "dev:chrome": "wxt -b chrome",
