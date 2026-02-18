@@ -1,11 +1,11 @@
-# Chat Thread Exporter (WXT)
+# DumpChat (WXT)
 
-Browser extension built with [WXT](https://wxt.dev/guide/installation.html) to export conversations from:
+`DumpChat` is a browser extension built with [WXT](https://wxt.dev/guide/installation.html) to export conversations from:
 
 - `https://chatgpt.com`
 - `https://claude.ai`
 
-The exporter follows the same core idea used by [agarwalvishal/claude-chat-exporter](https://github.com/agarwalvishal/claude-chat-exporter): it clicks each chat UI copy button and captures the copied text, rather than rebuilding assistant responses from raw DOM text.
+This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.com/agarwalvishal/claude-chat-exporter), especially the use of native chat UI copy actions as a primary extraction path.
 
 ## What it does
 

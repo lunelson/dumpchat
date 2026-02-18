@@ -83,10 +83,10 @@ type DiagnosticReport = {
   issues: string[];
 };
 
-const EXPORT_BUTTON_ID = 'chat-thread-exporter-button';
-const VERIFY_BUTTON_ID = 'chat-thread-exporter-verify-button';
-const STATUS_ID = 'chat-thread-exporter-status';
-const HEALTH_BADGE_ID = 'chat-thread-exporter-health-badge';
+const EXPORT_BUTTON_ID = 'dumpchat-export-button';
+const VERIFY_BUTTON_ID = 'dumpchat-verify-button';
+const STATUS_ID = 'dumpchat-status';
+const HEALTH_BADGE_ID = 'dumpchat-health-badge';
 const POLL_MS = 1200;
 const DIAGNOSTICS_SCHEMA_NAME = 'chat-export-diagnostics';
 const DIAGNOSTICS_SCHEMA_VERSION = '1.0.0';
