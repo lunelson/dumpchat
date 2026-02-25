@@ -155,6 +155,15 @@ Important notes:
 - `wxt submit` reads `.env.submit` and requires ZIP paths plus credentials.
 - Keep `.env.submit` local only; never commit store credentials.
 
+Where values come from:
+
+- `CHROME_ZIP` / `FIREFOX_ZIP` / `FIREFOX_SOURCES_ZIP`: produced by `bun run zip:all` in `.output/`.
+- `CHROME_EXTENSION_ID`: your extension item ID in Chrome Web Store Developer Dashboard (existing listing).
+- `CHROME_CLIENT_ID` / `CHROME_CLIENT_SECRET`: OAuth client created in Google Cloud during Chrome Web Store API setup.
+- `CHROME_REFRESH_TOKEN`: generated from the OAuth flow (OAuth Playground is documented in Chrome's API guide).
+- `FIREFOX_EXTENSION_ID`: your AMO add-on ID (recommended to match `browser_specific_settings.gecko.id` in manifest).
+- `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`: AMO API credentials from the addons.mozilla.org developer credentials page.
+
 References:
 
 - WXT CLI (`submit`): https://wxt.dev
