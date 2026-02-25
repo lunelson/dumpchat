@@ -115,22 +115,35 @@ For end users, installation is still developer-style (`Load unpacked` on Chromiu
 
 This project can be published to both Chrome Web Store and Firefox Add-ons using WXT's `submit` command (backed by `publish-browser-extension`).
 
-Setup once:
+One-time setup:
+
+1. Initialize submission secrets/options interactively (creates/updates `.env.submit`):
+   ```bash
+   bun run submit:init
+   ```
+2. Or copy the template and edit manually:
+   ```bash
+   cp .env.submit.example .env.submit
+   ```
+   Fill in store credentials/IDs in `.env.submit`.
+
+Per release:
 
 1. Build store artifacts:
    ```bash
    bun run zip:all
    ```
-2. Initialize submission secrets/options interactively:
+2. Update ZIP paths in `.env.submit` for the version you are publishing:
    ```bash
-   bun run submit:init
+   CHROME_ZIP=.output/dumpchat-wxt-<version>-chrome.zip
+   FIREFOX_ZIP=.output/dumpchat-wxt-<version>-firefox.zip
+   FIREFOX_SOURCES_ZIP=.output/dumpchat-wxt-<version>-sources.zip
    ```
-3. Copy `.env.example` to `.env` and fill in your real credentials/IDs.
-4. Validate auth and config without uploading:
+3. Validate auth and config without uploading:
    ```bash
    bun run submit:dry
    ```
-5. Submit:
+4. Submit:
    ```bash
    bun run submit
    ```
@@ -139,7 +152,8 @@ Important notes:
 
 - You still need active developer accounts and store listings in each store.
 - The first submission is typically manual through each dashboard; API-based updates are easier after IDs/credentials are established.
-- Keep `.env` local only; never commit store credentials.
+- `wxt submit` reads `.env.submit` and requires ZIP paths plus credentials.
+- Keep `.env.submit` local only; never commit store credentials.
 
 References:
 
