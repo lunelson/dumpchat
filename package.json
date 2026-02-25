@@ -1,41 +1,51 @@
 {
-  "name": "dumpchat",
+  "name": "dumpchat-wxt",
   "version": "0.1.1",
   "private": true,
-  "type": "module",
+  "homepage": "https://github.com/lunelson/dumpchat#readme",
+  "bugs": {
+    "url": "https://github.com/lunelson/dumpchat/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lunelson/dumpchat.git"
   },
-  "bugs": {
-    "url": "https://github.com/lunelson/dumpchat/issues"
-  },
-  "homepage": "https://github.com/lunelson/dumpchat#readme",
+  "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:chrome": "wxt -b chrome",
     "dev:firefox": "wxt -b firefox",
+    "lint": "oxlint --type-aware .",
+    "lint:fix": "oxlint --type-aware --fix .",
+    "format": "oxfmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\"",
+    "format:check": "oxfmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\" --check",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "wxt build",
     "build:chrome": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox",
-    "build:all": "npm run build:chrome && npm run build:firefox",
+    "build:all": "bun run build:chrome && bun run build:firefox",
     "zip": "wxt zip",
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
-    "zip:all": "npm run zip:chrome && npm run zip:firefox",
+    "zip:all": "bun run zip:chrome && bun run zip:firefox",
     "release": "release-it",
     "release:ci": "release-it --ci",
     "release:dry": "release-it --dry-run --no-github.release"
   },
   "devDependencies": {
+    "@tsconfig/strictest": "^2.0.8",
     "@vitest/coverage-v8": "^4.0.18",
     "jsdom": "^28.1.0",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
+    "oxlint-tsgolint": "^0.15.0",
     "release-it": "^19.2.4",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18",
     "wxt": "^0.20.6"
-  }
+  },
+  "packageManager": "bun@1.3.4"
 }

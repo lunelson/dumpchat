@@ -11,12 +11,12 @@
   "github": {
     "release": true,
     "assets": [
-      ".output/dumpchat-${version}-chrome.zip",
-      ".output/dumpchat-${version}-firefox.zip",
-      ".output/dumpchat-${version}-sources.zip"
+      ".output/dumpchat-wxt-${version}-chrome.zip",
+      ".output/dumpchat-wxt-${version}-firefox.zip",
+      ".output/dumpchat-wxt-${version}-sources.zip"
     ]
   },
   "hooks": {
-    "after:bump": "npm run zip:all"
+    "after:bump": "bun run zip:all"
   }
 }

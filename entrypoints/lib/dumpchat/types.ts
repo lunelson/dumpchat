@@ -1,4 +1,4 @@
-export type Site = 'chatgpt' | 'claude';
+export type Site = "chatgpt" | "claude";
 
 export type SiteConfig = {
   titleSelectors: string[];
@@ -25,7 +25,7 @@ export type AssistantExtractionDebug = {
   emptyCount: number;
 };
 
-export type CopyButtonRoleHint = 'user' | 'assistant' | 'unknown';
+export type CopyButtonRoleHint = "user" | "assistant" | "unknown";
 
 export type ExportData = {
   title: string;
@@ -35,7 +35,7 @@ export type ExportData = {
   assistantDebug: AssistantExtractionDebug;
 };
 
-export type HealthLevel = 'green' | 'yellow' | 'red' | 'gray';
+export type HealthLevel = "green" | "yellow" | "red" | "gray";
 
 export type DiagnosticReport = {
   schema: {
@@ -67,7 +67,7 @@ export type DiagnosticReport = {
     assistantDebug: AssistantExtractionDebug;
   };
   health: {
-    level: Exclude<HealthLevel, 'gray'>;
+    level: Exclude<HealthLevel, "gray">;
     summary: string;
   };
   samples: {

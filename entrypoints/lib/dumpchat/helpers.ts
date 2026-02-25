@@ -1,4 +1,4 @@
-import type { SiteConfig } from './types';
+import type { SiteConfig } from "./types";
 
 export function toElements<T extends Element>(selector: string): T[] {
   return Array.from(document.querySelectorAll<T>(selector));
@@ -9,26 +9,26 @@ export function uniqueElements<T extends Element>(items: T[]): T[] {
 }
 
 export function normalizeText(value: string): string {
-  return value.replace(/\r\n/g, '\n').trim();
+  return value.replace(/\r\n/g, "\n").trim();
 }
 
 export function cleanActionLabels(value: string): string {
   return value
-    .split('\n')
+    .split("\n")
     .map((line) => line.trimEnd())
     .filter(
       (line) =>
         !/^(Copy|Edit|Retry|Regenerate|Share|Like|Dislike|Thumbs up|Thumbs down)$/i.test(
-          line.trim()
-        )
+          line.trim(),
+        ),
     )
-    .join('\n')
+    .join("\n")
     .trim();
 }
 
 export function hover(node: HTMLElement): void {
-  node.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-  node.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+  node.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+  node.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
 }
 
 export function isVisible(node: HTMLElement): boolean {
@@ -42,7 +42,7 @@ function wait(ms: number): Promise<void> {
 export async function waitFor(
   check: () => boolean,
   timeoutMs: number,
-  intervalMs: number
+  intervalMs: number,
 ): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -53,10 +53,10 @@ export async function waitFor(
 
 export function interceptClipboard(onWrite: (text: string) => void): () => void {
   const copyHandler = (event: ClipboardEvent) => {
-    const value = normalizeText(event.clipboardData?.getData('text/plain') || '');
+    const value = normalizeText(event.clipboardData?.getData("text/plain") || "");
     if (value) onWrite(value);
   };
-  document.addEventListener('copy', copyHandler, true);
+  document.addEventListener("copy", copyHandler, true);
 
   const clipboard = navigator.clipboard as Clipboard & {
     writeText?: (data: string) => Promise<void>;
@@ -64,14 +64,12 @@ export function interceptClipboard(onWrite: (text: string) => void): () => void 
   };
 
   const originalWriteText =
-    clipboard && typeof clipboard.writeText === 'function'
+    clipboard && typeof clipboard.writeText === "function"
       ? clipboard.writeText.bind(clipboard)
       : null;
 
   const originalWrite =
-    clipboard && typeof clipboard.write === 'function'
-      ? clipboard.write.bind(clipboard)
-      : null;
+    clipboard && typeof clipboard.write === "function" ? clipboard.write.bind(clipboard) : null;
 
   if (originalWriteText) {
     clipboard.writeText = async (value: string) => {
@@ -87,9 +85,9 @@ export function interceptClipboard(onWrite: (text: string) => void): () => void 
   if (originalWrite) {
     clipboard.write = async (items: ClipboardItem[]) => {
       for (const item of items || []) {
-        if (!item.types.includes('text/plain')) continue;
+        if (!item.types.includes("text/plain")) continue;
         try {
-          const blob = await item.getType('text/plain');
+          const blob = await item.getType("text/plain");
           const text = await blob.text();
           if (text) onWrite(text);
         } catch {
@@ -105,7 +103,7 @@ export function interceptClipboard(onWrite: (text: string) => void): () => void 
   }
 
   return () => {
-    document.removeEventListener('copy', copyHandler, true);
+    document.removeEventListener("copy", copyHandler, true);
     if (originalWriteText) clipboard.writeText = originalWriteText;
     if (originalWrite) clipboard.write = originalWrite;
   };
@@ -113,7 +111,7 @@ export function interceptClipboard(onWrite: (text: string) => void): () => void 
 
 export function getVisibleUserNodes(config: SiteConfig): HTMLElement[] {
   const candidates = toElements<HTMLElement>(config.userMessageSelector).filter((node) =>
-    isVisible(node)
+    isVisible(node),
   );
 
   const grouped = candidates.map((node) => {

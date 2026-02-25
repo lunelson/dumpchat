@@ -20,47 +20,47 @@ This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.
 
 1. Install dependencies:
    ```bash
-   npm install
+   bun install
    ```
 2. Start dev mode (optional):
    ```bash
-   npm run dev
+   bun run dev
    ```
-   - Chrome target: `npm run dev:chrome`
-   - Firefox target: `npm run dev:firefox`
+   - Chrome target: `bun run dev:chrome`
+   - Firefox target: `bun run dev:firefox`
 
 ## Build Packages
 
 Build unpacked outputs for both browsers (useful for local verification):
 
 ```bash
-npm run build:all
+bun run build:all
 ```
 
 Build and zip for both browsers:
 
 ```bash
-npm run zip:all
+bun run zip:all
 ```
 
 Or per browser:
 
 ```bash
-npm run zip:chrome
-npm run zip:firefox
+bun run zip:chrome
+bun run zip:firefox
 ```
 
 Generated files are written to `.output/`, for example:
 
-- `dumpchat-<version>-chrome.zip`
-- `dumpchat-<version>-firefox.zip`
-- `dumpchat-<version>-sources.zip` (generated alongside Firefox package)
+- `dumpchat-wxt-<version>-chrome.zip`
+- `dumpchat-wxt-<version>-firefox.zip`
+- `dumpchat-wxt-<version>-sources.zip` (generated alongside Firefox package)
 
 ## Dev Install: Chrome / Chromium
 
 1. Build Chrome output:
    ```bash
-   npm run build:chrome
+   bun run build:chrome
    ```
 2. Open `chrome://extensions` (or `edge://extensions`).
 3. Enable `Developer mode`.
@@ -71,7 +71,7 @@ Generated files are written to `.output/`, for example:
 
 1. Build Firefox output:
    ```bash
-   npm run build:firefox
+   bun run build:firefox
    ```
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click `Load Temporary Add-on...`.
@@ -85,25 +85,25 @@ Note: temporary Firefox add-ons are removed when Firefox restarts.
 
 - bump `package.json` version
 - create a release commit + git tag
-- build and zip both browser targets (`after:bump` hook runs `npm run zip:all`)
+- build and zip both browser targets (`after:bump` hook runs `bun run zip:all`)
 - create a GitHub Release and attach zip assets from `.output/`
 
 Run an interactive release:
 
 ```bash
-npm run release
+bun run release
 ```
 
 Or CI/non-interactive mode:
 
 ```bash
-npm run release:ci
+bun run release:ci
 ```
 
 Dry run (no GitHub release API call):
 
 ```bash
-npm run release:dry
+bun run release:dry
 ```
 
 If `GITHUB_TOKEN` is not set, release-it falls back to manual GitHub release flow in the browser.
