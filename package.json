@@ -33,7 +33,10 @@
     "zip:all": "bun run zip:chrome && bun run zip:firefox",
     "release": "release-it",
     "release:ci": "release-it --ci",
-    "release:dry": "release-it --dry-run --no-github.release"
+    "release:dry": "release-it --dry-run --no-github.release",
+    "submit": "wxt submit",
+    "submit:dry": "wxt submit --dry-run",
+    "submit:init": "wxt submit init"
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.8",

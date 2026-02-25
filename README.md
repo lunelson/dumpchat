@@ -110,6 +110,44 @@ If `GITHUB_TOKEN` is not set, release-it falls back to manual GitHub release flo
 
 For end users, installation is still developer-style (`Load unpacked` on Chromium, `Load Temporary Add-on` on Firefox).
 
+## Publishing To Stores (Viable)
+
+This project can be published to both Chrome Web Store and Firefox Add-ons using WXT's `submit` command (backed by `publish-browser-extension`).
+
+Setup once:
+
+1. Build store artifacts:
+   ```bash
+   bun run zip:all
+   ```
+2. Initialize submission secrets/options interactively:
+   ```bash
+   bun run submit:init
+   ```
+3. Copy `.env.example` to `.env` and fill in your real credentials/IDs.
+4. Validate auth and config without uploading:
+   ```bash
+   bun run submit:dry
+   ```
+5. Submit:
+   ```bash
+   bun run submit
+   ```
+
+Important notes:
+
+- You still need active developer accounts and store listings in each store.
+- The first submission is typically manual through each dashboard; API-based updates are easier after IDs/credentials are established.
+- Keep `.env` local only; never commit store credentials.
+
+References:
+
+- WXT CLI (`submit`): https://wxt.dev
+- `publish-browser-extension` options: https://www.npmjs.com/package/publish-browser-extension
+- Chrome Web Store publishing docs: https://developer.chrome.com/docs/webstore/publish/
+- Chrome Web Store API docs: https://developer.chrome.com/docs/webstore/using-api/
+- Firefox Add-ons submission docs: https://extensionworkshop.com/documentation/publish/submitting-an-add-on/
+
 ## Verification Harness
 
 Use this whenever an export is missing content.
