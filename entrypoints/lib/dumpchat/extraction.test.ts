@@ -5,8 +5,10 @@ import {
   collectExportData,
   deriveHealthStatus,
   getChatGptTurnCopyButtons,
+  getPerplexityAssistantCopyButtons,
   isLikelyChatGptTitle,
   isLikelyChatGptTurnCopyButton,
+  isLikelyPerplexityAssistantCopyButton,
   readTitle,
 } from "./extraction";
 
@@ -186,5 +188,80 @@ describe("extraction", () => {
 
     const data = await collectExportData("chatgpt");
     expect(data.assistants).toEqual(["copied-a1", "fallback-a2", "copied-a3"]);
+  });
+
+  it("filters perplexity assistant copy button from code-block copy buttons", () => {
+    document.body.innerHTML = `
+      <div class="bg-base">
+        <div id="markdown-content-0">
+          <pre><button id="codeCopy" aria-label="Copy">Copy</button></pre>
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <button aria-label="Share">Share</button>
+            <button id="assistantCopy" aria-label="Copy">Copy</button>
+            <button aria-label="Rewrite">Rewrite</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const buttons = getPerplexityAssistantCopyButtons(document, SITE_CONFIG.perplexity);
+    expect(buttons).toHaveLength(1);
+    expect(buttons.at(0)?.id).toBe("assistantCopy");
+
+    const codeCopy = document.getElementById("codeCopy");
+    if (!(codeCopy instanceof HTMLButtonElement)) {
+      throw new Error("codeCopy button not found");
+    }
+    expect(isLikelyPerplexityAssistantCopyButton(codeCopy, SITE_CONFIG.perplexity)).toBe(false);
+  });
+
+  it("extracts perplexity user and assistant turns from the correct copy buttons", async () => {
+    document.body.innerHTML = `
+      <div class="bg-base">
+        <div class="group relative flex items-end gap-0.5">
+          <div class="flex items-start gap-2">
+            <div>
+              <button id="queryCopy" aria-label="Copy Query">Copy Query</button>
+            </div>
+            <div class="group/query"><span>fallback question text</span></div>
+          </div>
+        </div>
+        <div class="gap-y-lg flex flex-col">
+          <div id="markdown-content-0">
+            <p>fallback assistant text</p>
+            <pre><button id="codeCopyAgain" aria-label="Copy">Copy</button></pre>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <button aria-label="Share">Share</button>
+              <button id="assistantCopy" aria-label="Copy">Copy</button>
+              <button aria-label="Rewrite">Rewrite</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const queryCopy = document.getElementById("queryCopy");
+    if (!(queryCopy instanceof HTMLButtonElement)) {
+      throw new Error("queryCopy button not found");
+    }
+    queryCopy.addEventListener("click", () => {
+      void navigator.clipboard.writeText("copied user query");
+    });
+
+    const assistantCopy = document.getElementById("assistantCopy");
+    if (!(assistantCopy instanceof HTMLButtonElement)) {
+      throw new Error("assistantCopy button not found");
+    }
+    assistantCopy.addEventListener("click", () => {
+      void navigator.clipboard.writeText("copied assistant answer");
+    });
+
+    const data = await collectExportData("perplexity");
+    expect(data.users).toEqual(["copied user query"]);
+    expect(data.assistants).toEqual(["copied assistant answer"]);
   });
 });

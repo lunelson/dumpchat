@@ -48,11 +48,28 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
     editTextareaSelector: "textarea",
     messageGroupSelector: '.group, [data-testid="chat-message"]',
   },
+  perplexity: {
+    titleSelectors: [
+      '[class*="group/query"] span',
+      '[class*="group/query"]',
+      '[id^="markdown-content-"] h1',
+      "main h1",
+    ],
+    conversationPath: /^\/.+/,
+    userMessageSelector: '[class*="group/query"] span, [class*="group/query"]',
+    assistantMessageSelector: '[id^="markdown-content-"]',
+    copyButtonSelector: 'button[aria-label="Copy Query"], button[aria-label="Copy"]',
+    editButtonSelector: 'button[aria-label="Edit Query"]',
+    editTextareaSelector: "textarea",
+    messageGroupSelector: "div.bg-base",
+  },
 };
 
 export function detectSite(): Site | null {
   if (location.hostname === "chatgpt.com") return "chatgpt";
   if (location.hostname === "claude.ai") return "claude";
+  if (location.hostname === "perplexity.ai" || location.hostname === "www.perplexity.ai")
+    return "perplexity";
   return null;
 }
 

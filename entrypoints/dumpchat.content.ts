@@ -11,7 +11,12 @@ import { buildDiagnosticReport, collectExportData } from "./lib/dumpchat/extract
 import type { HealthLevel, Site } from "./lib/dumpchat/types";
 
 export default defineContentScript({
-  matches: ["*://chatgpt.com/*", "*://claude.ai/*"],
+  matches: [
+    "*://chatgpt.com/*",
+    "*://claude.ai/*",
+    "*://perplexity.ai/*",
+    "*://www.perplexity.ai/*",
+  ],
   runAt: "document_idle",
   world: "MAIN",
   main() {

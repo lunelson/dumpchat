@@ -15,13 +15,22 @@ import {
   readChatGptDocumentTitle,
   readTitle,
 } from "./sites/chatgpt";
+import {
+  collectPerplexityExportData,
+  getPerplexityAssistantCopyButtons,
+  isLikelyPerplexityAssistantCopyButton,
+  readPerplexityTitle,
+} from "./sites/perplexity";
 import type { DiagnosticReport, ExportData, Site } from "./types";
 
 export {
   getChatGptTurnCopyButtons,
+  getPerplexityAssistantCopyButtons,
   isLikelyChatGptTitle,
   isLikelyChatGptTurnCopyButton,
+  isLikelyPerplexityAssistantCopyButton,
   readChatGptDocumentTitle,
+  readPerplexityTitle,
   readTitle,
 };
 
@@ -30,6 +39,9 @@ export async function collectExportData(site: Site): Promise<ExportData> {
 
   if (site === "chatgpt") {
     return await collectChatGptExportData(config, site);
+  }
+  if (site === "perplexity") {
+    return await collectPerplexityExportData(config, site);
   }
   return await collectClaudeExportData(config, site);
 }
@@ -42,7 +54,9 @@ export async function buildDiagnosticReport(site: Site): Promise<DiagnosticRepor
   const allCopyButtons =
     site === "chatgpt"
       ? getChatGptTurnCopyButtons(document, config)
-      : uniqueElements(toElements<HTMLButtonElement>(config.copyButtonSelector));
+      : site === "perplexity"
+        ? getPerplexityAssistantCopyButtons(document, config)
+        : uniqueElements(toElements<HTMLButtonElement>(config.copyButtonSelector));
   const visibleCopyButtons = allCopyButtons.filter((node) => isVisible(node));
   const extractedAssistants = data.assistants.filter((text) => !!normalizeText(text));
   const issues: string[] = [];

@@ -1,4 +1,4 @@
-export type Site = "chatgpt" | "claude";
+export type Site = "chatgpt" | "claude" | "perplexity";
 
 export type SiteConfig = {
   titleSelectors: string[];

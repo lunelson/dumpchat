@@ -4,6 +4,7 @@
 
 - `https://chatgpt.com`
 - `https://claude.ai`
+- `https://www.perplexity.ai`
 
 This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.com/agarwalvishal/claude-chat-exporter), especially the use of native chat UI copy actions as a primary extraction path.
 
