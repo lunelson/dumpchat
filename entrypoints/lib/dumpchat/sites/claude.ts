@@ -1,4 +1,3 @@
-import type { CopyButtonRoleHint, ExportData, Site, SiteConfig } from "../types";
 import {
   hover,
   interceptClipboard,
@@ -8,6 +7,7 @@ import {
   uniqueElements,
   waitFor,
 } from "../helpers";
+import type { CopyButtonRoleHint, ExportData, Site, SiteConfig } from "../types";
 
 type ClaudeTurn = {
   root: HTMLElement;
@@ -147,7 +147,7 @@ function extractClaudeAssistantText(root: HTMLElement): string {
   )
     .map((node) => normalizeText(node.innerText || node.textContent || ""))
     .filter((value) => !!value)
-    .sort((a, b) => b.length - a.length);
+    .toSorted((a, b) => b.length - a.length);
 
   if (candidates[0]) return candidates[0];
 

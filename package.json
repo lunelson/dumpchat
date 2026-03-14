@@ -15,40 +15,49 @@
     "dev": "wxt",
     "dev:chrome": "wxt -b chrome",
     "dev:firefox": "wxt -b firefox",
-    "lint": "oxlint --type-aware .",
-    "lint:fix": "oxlint --type-aware --fix .",
-    "format": "oxfmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\"",
-    "format:check": "oxfmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\" --check",
+    "lint": "vp lint --type-aware .",
+    "lint:fix": "vp lint --type-aware --fix .",
+    "format": "vp fmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\"",
+    "format:check": "vp fmt \"**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}\" --check",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "test:coverage": "vp test run --coverage",
     "build": "wxt build",
     "build:chrome": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox",
-    "build:all": "bun run build:chrome && bun run build:firefox",
+    "build:all": "vp run build:chrome && vp run build:firefox",
     "zip": "wxt zip",
     "zip:chrome": "wxt zip -b chrome",
     "zip:firefox": "wxt zip -b firefox",
-    "zip:all": "bun run zip:chrome && bun run zip:firefox",
+    "zip:all": "vp run zip:chrome && vp run zip:firefox",
     "release": "release-it",
     "release:ci": "release-it --ci",
     "release:dry": "release-it --dry-run --no-github.release",
     "submit": "wxt submit",
     "submit:dry": "wxt submit --dry-run",
-    "submit:init": "wxt submit init"
+    "submit:init": "wxt submit init",
+    "prepare": "vp config"
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.8",
     "@vitest/coverage-v8": "^4.0.18",
     "jsdom": "^28.1.0",
-    "oxfmt": "^0.35.0",
-    "oxlint": "^1.50.0",
-    "oxlint-tsgolint": "^0.15.0",
     "release-it": "^19.2.4",
     "typescript": "^5.7.3",
-    "vitest": "^4.0.18",
+    "vite-plus": "latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
     "wxt": "^0.20.6"
   },
-  "packageManager": "bun@1.3.4"
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+      "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "spawn-sync"
+    ]
+  }
 }

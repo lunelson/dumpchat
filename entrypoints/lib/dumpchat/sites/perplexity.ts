@@ -1,4 +1,3 @@
-import type { ExportData, Site, SiteConfig } from "../types";
 import {
   hover,
   interceptClipboard,
@@ -7,6 +6,7 @@ import {
   uniqueElements,
   waitFor,
 } from "../helpers";
+import type { ExportData, Site, SiteConfig } from "../types";
 
 export async function collectPerplexityExportData(
   config: SiteConfig,

@@ -1,8 +1,7 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  test: {
-    environment: "jsdom",
-    include: ["entrypoints/**/*.test.ts"],
+  staged: {
+    "*": "vp check --fix",
   },
 });

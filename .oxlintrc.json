@@ -4,5 +4,9 @@
   "categories": {
     "correctness": "error",
     "suspicious": "error"
+  },
+  "settings": {
+    "typeAware": true,
+    "typeCheck": true
   }
 }

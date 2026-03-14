@@ -1,4 +1,3 @@
-import type { ExportData, Site, SiteConfig } from "../types";
 import {
   cleanActionLabels,
   hover,
@@ -9,6 +8,7 @@ import {
   uniqueElements,
   waitFor,
 } from "../helpers";
+import type { ExportData, Site, SiteConfig } from "../types";
 
 export async function collectChatGptExportData(
   config: SiteConfig,

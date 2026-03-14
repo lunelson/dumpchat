@@ -8,5 +8,14 @@
     ".wxt/**",
     "coverage/**",
     "node_modules/**"
-  ]
+  ],
+  "trailingComma": "all",
+  "sortImports": {
+    "enabled": true,
+    "groups": ["builtin", "external", "internal", "parent", "sibling", "index"]
+  },
+  "sortPackageJson": true,
+  "sortTailwindcss": {
+    "enabled": true
+  }
 }

@@ -24,9 +24,11 @@ This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.
    bun install
    ```
 2. Start dev mode (optional):
+
    ```bash
    bun run dev
    ```
+
    - Chrome target: `bun run dev:chrome`
    - Firefox target: `bun run dev:firefox`
 

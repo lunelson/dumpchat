@@ -6,7 +6,6 @@ import {
   toElements,
   uniqueElements,
 } from "./helpers";
-import { collectClaudeExportData, readSimpleTitle } from "./sites/claude";
 import {
   collectChatGptExportData,
   getChatGptTurnCopyButtons,
@@ -15,6 +14,7 @@ import {
   readChatGptDocumentTitle,
   readTitle,
 } from "./sites/chatgpt";
+import { collectClaudeExportData, readSimpleTitle } from "./sites/claude";
 import {
   collectPerplexityExportData,
   getPerplexityAssistantCopyButtons,
