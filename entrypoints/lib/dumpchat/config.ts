@@ -50,15 +50,15 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
   },
   perplexity: {
     titleSelectors: [
-      '[class*="group/query"] span',
-      '[class*="group/query"]',
+      '[class~="group/query"] > div > span',
       '[id^="markdown-content-"] h1',
       "main h1",
     ],
     conversationPath: /^\/.+/,
-    userMessageSelector: '[class*="group/query"] span, [class*="group/query"]',
-    assistantMessageSelector: '[id^="markdown-content-"]',
-    copyButtonSelector: 'button[aria-label="Copy Query"], button[aria-label="Copy"]',
+    userMessageSelector: '[class~="group/query"] > div > span',
+    assistantMessageSelector: 'div[id^="markdown-content-"]',
+    copyButtonSelector:
+      'button[aria-label="Copy Query"], button[aria-label*="Copy"], button[title*="Copy"]',
     editButtonSelector: 'button[aria-label="Edit Query"]',
     editTextareaSelector: "textarea",
     messageGroupSelector: "div.bg-base",

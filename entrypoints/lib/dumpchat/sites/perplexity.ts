@@ -13,7 +13,14 @@ export async function collectPerplexityExportData(
   site: Site,
 ): Promise<ExportData> {
   const queryButtons = getPerplexityQueryCopyButtons(document);
-  const assistantButtons = getPerplexityAssistantCopyButtons(document, config);
+  const assistantNodes = getPerplexityAssistantNodes(document, config);
+  const assistantEntries = assistantNodes.map((node) => ({
+    node,
+    button: findPerplexityAssistantCopyButton(node, config),
+  }));
+  const assistantButtons = assistantEntries
+    .map((entry) => entry.button)
+    .filter((button): button is HTMLButtonElement => !!button);
   const allCopyButtons = uniqueElements([...queryButtons, ...assistantButtons]);
   const captured: string[] = [];
   const copiedQueries = new Map<number, string>();
@@ -33,7 +40,9 @@ export async function collectPerplexityExportData(
       if (copied) copiedQueries.set(idx, copied);
     }
 
-    for (const [idx, button] of assistantButtons.entries()) {
+    for (const [idx, entry] of assistantEntries.entries()) {
+      const button = entry.button;
+      if (!button) continue;
       const before = captured.length;
       hover(button);
       button.click();
@@ -59,15 +68,15 @@ export async function collectPerplexityExportData(
 
   let usedFallbackCount = 0;
   let fromButtonFallbackCount = 0;
-  const assistants = assistantButtons
-    .map((button, idx) => {
+  const assistants = assistantEntries
+    .map(({ button, node }, idx) => {
       const copied = copiedAssistants.get(idx) || "";
       if (copied) return copied;
 
-      const fallback = extractPerplexityAssistantTextFromCopyButton(button, config);
+      const fallback = extractPerplexityAssistantText(node);
       if (fallback) {
         usedFallbackCount += 1;
-        fromButtonFallbackCount += 1;
+        if (button) fromButtonFallbackCount += 1;
       }
       return fallback;
     })
@@ -85,12 +94,12 @@ export async function collectPerplexityExportData(
       copyButtonsAfterUserFilter: assistantButtons.length,
       clipboardCaptures: copiedAssistants.size,
       filteredByRoleHintCount: queryButtons.length,
-      fallbackCount: assistantButtons.length,
+      fallbackCount: assistantEntries.length,
       usedFallbackCount,
       fromButtonFallbackCount,
       filteredAsUserMatchCount: 0,
       userCopyReplacementsCount,
-      emptyCount: Math.max(0, assistantButtons.length - assistants.length),
+      emptyCount: Math.max(0, assistantEntries.length - assistants.length),
     },
   };
 }
@@ -120,12 +129,10 @@ export function getPerplexityAssistantCopyButtons(
   root: ParentNode,
   config: SiteConfig,
 ): HTMLButtonElement[] {
-  const candidates = Array.from(
-    root.querySelectorAll<HTMLButtonElement>('button[aria-label="Copy"]'),
-  ).filter((button) => isVisible(button));
-
   return uniqueElements(
-    candidates.filter((button) => isLikelyPerplexityAssistantCopyButton(button, config)),
+    getPerplexityAssistantNodes(root, config)
+      .map((node) => findPerplexityAssistantCopyButton(node, config))
+      .filter((button): button is HTMLButtonElement => !!button),
   );
 }
 
@@ -133,42 +140,35 @@ export function isLikelyPerplexityAssistantCopyButton(
   button: HTMLButtonElement,
   config: SiteConfig,
 ): boolean {
-  const label = normalizeText(button.getAttribute("aria-label") || "").toLowerCase();
-  if (label !== "copy") return false;
+  const label = readPerplexityButtonLabel(button);
+  if (!label.includes("copy") || label.includes("query")) return false;
   if (button.closest("pre, code")) return false;
 
-  const actionRow = button.closest("div.flex.items-center.justify-between");
-  if (!(actionRow instanceof HTMLElement)) return false;
-
-  const hasShare = !!actionRow.querySelector('button[aria-label="Share"]');
-  const hasRewrite = !!actionRow.querySelector('button[aria-label="Rewrite"]');
-  if (!hasShare || !hasRewrite) return false;
-
   const assistantRoot = findPerplexityAssistantRoot(button, config);
-  if (!assistantRoot) return false;
-  return !!assistantRoot.querySelector<HTMLElement>(config.assistantMessageSelector);
+  return !!assistantRoot;
+}
+
+function readPerplexityButtonLabel(button: HTMLButtonElement): string {
+  return normalizeText(
+    button.getAttribute("aria-label") || button.getAttribute("title") || button.textContent || "",
+  ).toLowerCase();
 }
 
 function findPerplexityAssistantRoot(
   button: HTMLButtonElement,
   config: SiteConfig,
 ): HTMLElement | null {
-  let current: HTMLElement | null = button;
-  while (current) {
-    if (current.querySelector<HTMLElement>(config.assistantMessageSelector)) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
+  return (
+    getPerplexityAssistantNodes(button.ownerDocument, config).find(
+      (assistantNode) => findPerplexityAssistantCopyButton(assistantNode, config) === button,
+    ) || null
+  );
 }
 
 function extractPerplexityUserTextFromCopyButton(button: HTMLButtonElement): string {
   let current: HTMLElement | null = button;
   while (current) {
-    const userTextNode = current.querySelector<HTMLElement>(
-      '[class*="group/query"] span, [class*="group/query"]',
-    );
+    const userTextNode = current.querySelector<HTMLElement>('[class~="group/query"] > div > span');
     const value = normalizeText(userTextNode?.innerText || userTextNode?.textContent || "");
     if (value) return value;
     current = current.parentElement;
@@ -177,15 +177,74 @@ function extractPerplexityUserTextFromCopyButton(button: HTMLButtonElement): str
   return "";
 }
 
-function extractPerplexityAssistantTextFromCopyButton(
-  button: HTMLButtonElement,
+function extractPerplexityAssistantText(node: HTMLElement): string {
+  return normalizeText(node.innerText || node.textContent || "");
+}
+
+function getPerplexityAssistantNodes(root: ParentNode, config: SiteConfig): HTMLElement[] {
+  return uniqueElements(
+    Array.from(root.querySelectorAll<HTMLElement>(config.assistantMessageSelector)).filter((node) =>
+      isVisible(node),
+    ),
+  );
+}
+
+function findPerplexityAssistantCopyButton(
+  node: HTMLElement,
   config: SiteConfig,
-): string {
-  const root = findPerplexityAssistantRoot(button, config);
-  if (!root) return "";
+): HTMLButtonElement | null {
+  const actionRow = findPerplexityAssistantActionRow(node, config);
+  if (!actionRow) return null;
 
-  const content = root.querySelector<HTMLElement>(config.assistantMessageSelector);
-  if (!content) return "";
+  return (
+    Array.from(actionRow.querySelectorAll<HTMLButtonElement>("button"))
+      .filter((button) => isVisible(button))
+      .find((button) => {
+        const label = readPerplexityButtonLabel(button);
+        return label.includes("copy") && !label.includes("query");
+      }) || null
+  );
+}
 
-  return normalizeText(content.innerText || content.textContent || "");
+function findPerplexityAssistantActionRow(
+  node: HTMLElement,
+  config: SiteConfig,
+): HTMLElement | null {
+  let current: HTMLElement | null = node;
+  while (current) {
+    let sibling = current.nextElementSibling;
+    while (sibling) {
+      if (sibling instanceof HTMLElement && isPerplexityAssistantActionRow(sibling, config)) {
+        return sibling;
+      }
+      sibling = sibling.nextElementSibling;
+    }
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function isPerplexityAssistantActionRow(node: HTMLElement, config: SiteConfig): boolean {
+  if (node.querySelector(config.assistantMessageSelector)) return false;
+
+  const buttons = Array.from(node.querySelectorAll<HTMLButtonElement>("button")).filter((button) =>
+    isVisible(button),
+  );
+  if (buttons.length === 0) return false;
+
+  return (
+    hasPerplexityActionButton(buttons, "share") &&
+    hasPerplexityActionButton(buttons, "copy") &&
+    hasPerplexityActionButton(buttons, "rewrite")
+  );
+}
+
+function hasPerplexityActionButton(buttons: HTMLButtonElement[], labelFragment: string): boolean {
+  return buttons.some((button) => {
+    const label = readPerplexityButtonLabel(button);
+    if (!label.includes(labelFragment)) return false;
+    if (labelFragment === "copy" && label.includes("query")) return false;
+    return true;
+  });
 }

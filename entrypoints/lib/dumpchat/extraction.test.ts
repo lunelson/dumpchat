@@ -199,8 +199,9 @@ describe("extraction", () => {
         <div class="flex items-center justify-between">
           <div>
             <button aria-label="Share">Share</button>
+            <button aria-label="Download">Download</button>
             <button id="assistantCopy" aria-label="Copy">Copy</button>
-            <button aria-label="Rewrite">Rewrite</button>
+            <button aria-label="Rewrite Thread">Rewrite Thread</button>
           </div>
         </div>
       </div>
@@ -236,8 +237,9 @@ describe("extraction", () => {
           <div class="flex items-center justify-between">
             <div>
               <button aria-label="Share">Share</button>
+              <button aria-label="Download">Download</button>
               <button id="assistantCopy" aria-label="Copy">Copy</button>
-              <button aria-label="Rewrite">Rewrite</button>
+              <button aria-label="Rewrite Thread">Rewrite Thread</button>
             </div>
           </div>
         </div>
@@ -263,5 +265,22 @@ describe("extraction", () => {
     const data = await collectExportData("perplexity");
     expect(data.users).toEqual(["copied user query"]);
     expect(data.assistants).toEqual(["copied assistant answer"]);
+  });
+
+  it("falls back to perplexity assistant markdown when the action row is unavailable", async () => {
+    document.body.innerHTML = `
+      <div class="bg-base">
+        <div class="gap-y-lg flex flex-col">
+          <div dir="auto" id="markdown-content-0">
+            <p>fallback assistant text only</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const data = await collectExportData("perplexity");
+    expect(data.assistants).toEqual(["fallback assistant text only"]);
+    expect(data.assistantDebug.usedFallbackCount).toBe(1);
+    expect(data.assistantDebug.copyButtonsAfterUserFilter).toBe(0);
   });
 });

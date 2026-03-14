@@ -65,7 +65,11 @@ export async function buildDiagnosticReport(site: Site): Promise<DiagnosticRepor
     issues.push("Assistant nodes exist, but extracted assistant messages were empty.");
   }
 
-  if (assistantNodes.length > 0 && visibleCopyButtons.length === 0) {
+  if (
+    assistantNodes.length > 0 &&
+    visibleCopyButtons.length === 0 &&
+    extractedAssistants.length === 0
+  ) {
     issues.push("Assistant nodes exist, but no visible copy buttons matched current selector.");
   }
 
