@@ -203,6 +203,36 @@ describe("extraction", () => {
     expect(data.assistants).toEqual(["copied-a1", "fallback-a2", "copied-a3"]);
   });
 
+  it("extracts chatgpt turns when conversation wrappers no longer expose data-turn", async () => {
+    document.body.innerHTML = `
+      <article data-testid="conversation-turn-1">
+        <div data-message-author-role="user">
+          <div class="whitespace-pre-wrap">user prompt</div>
+        </div>
+        <div><button data-testid="copy-turn-action-button" aria-label="Copy">Copy</button></div>
+      </article>
+      <article data-testid="conversation-turn-2">
+        <div data-message-author-role="assistant">
+          <div class="markdown">assistant fallback</div>
+        </div>
+        <div><button id="assistantCopy" data-testid="copy-turn-action-button" aria-label="Copy">Copy</button></div>
+      </article>
+    `;
+
+    const assistantCopy = document.getElementById("assistantCopy");
+    if (!(assistantCopy instanceof HTMLButtonElement)) {
+      throw new Error("assistantCopy button not found");
+    }
+    assistantCopy.addEventListener("click", () => {
+      void navigator.clipboard.writeText("assistant copied");
+    });
+
+    const data = await collectExportData("chatgpt");
+    expect(data.users).toEqual(["user prompt"]);
+    expect(data.assistants).toEqual(["assistant copied"]);
+    expect(data.assistantDebug.copyButtonsAfterUserFilter).toBe(1);
+  });
+
   it("filters perplexity assistant copy button from code-block copy buttons", () => {
     document.body.innerHTML = `
       <div class="bg-base">

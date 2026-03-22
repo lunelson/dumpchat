@@ -14,9 +14,9 @@ export async function collectChatGptExportData(
   config: SiteConfig,
   site: Site,
 ): Promise<ExportData> {
-  const turnContainers = getVisibleTurnContainers(config);
-  const userTurns = turnContainers.filter((turn) => turn.dataset["turn"] === "user");
-  const assistantTurns = turnContainers.filter((turn) => turn.dataset["turn"] === "assistant");
+  const turns = getVisibleChatGptTurns(config);
+  const userTurns = turns.filter((turn) => turn.role === "user").map((turn) => turn.root);
+  const assistantTurns = turns.filter((turn) => turn.role === "assistant").map((turn) => turn.root);
 
   const users = userTurns
     .map((turn) => extractUserTextFromTurn(turn, config))
@@ -288,10 +288,30 @@ export function isLikelyChatGptTurnCopyButton(button: HTMLButtonElement): boolea
   return false;
 }
 
-function getVisibleTurnContainers(config: SiteConfig): HTMLElement[] {
+type ChatGptTurn = {
+  root: HTMLElement;
+  role: "user" | "assistant";
+};
+
+function getVisibleChatGptTurns(config: SiteConfig): ChatGptTurn[] {
   return uniqueElements(
-    toElements<HTMLElement>(config.messageGroupSelector).filter(
-      (node) => isVisible(node) && !!node.dataset["turn"],
-    ),
-  );
+    toElements<HTMLElement>(config.messageGroupSelector).filter((node) => isVisible(node)),
+  )
+    .map((root) => {
+      const role = getChatGptTurnRole(root, config);
+      if (!role) return null;
+      return { root, role };
+    })
+    .filter((turn): turn is ChatGptTurn => !!turn);
+}
+
+function getChatGptTurnRole(turn: HTMLElement, config: SiteConfig): "user" | "assistant" | null {
+  const explicitRole = turn.dataset["turn"];
+  if (explicitRole === "user" || explicitRole === "assistant") return explicitRole;
+
+  const hasUserMessage = !!turn.querySelector(config.userMessageSelector);
+  const hasAssistantMessage = !!turn.querySelector(config.assistantMessageSelector);
+
+  if (hasUserMessage === hasAssistantMessage) return null;
+  return hasUserMessage ? "user" : "assistant";
 }
