@@ -26,7 +26,7 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
     conversationPath: /^\/c\//,
     userMessageSelector: '[data-message-author-role="user"]',
     assistantMessageSelector: '[data-message-author-role="assistant"]',
-    copyButtonSelector: 'button[data-testid="copy-turn-action-button"], button[aria-label*="Copy"]',
+    copyButtonSelector: 'button[data-testid="copy-turn-action-button"]',
     editButtonSelector: 'button[data-testid="edit-turn-action-button"], button[aria-label*="Edit"]',
     editTextareaSelector:
       'textarea[data-testid="prompt-textarea"], textarea[name="prompt-textarea"], textarea',

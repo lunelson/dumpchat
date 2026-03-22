@@ -113,6 +113,19 @@ describe("extraction", () => {
     expect(buttons.at(0)?.id).toBe("turnCopy");
   });
 
+  it("ignores chatgpt copy buttons that only match aria-label", () => {
+    document.body.innerHTML = `
+      <article data-testid="conversation-turn-1" data-turn="assistant">
+        <div><button id="ariaOnly" aria-label="Copy">Copy</button></div>
+        <div><button id="turnCopy" data-testid="copy-turn-action-button" aria-label="Copy">Copy</button></div>
+      </article>
+    `;
+
+    const buttons = getChatGptTurnCopyButtons(document, SITE_CONFIG.chatgpt);
+    expect(buttons).toHaveLength(1);
+    expect(buttons.at(0)?.id).toBe("turnCopy");
+  });
+
   it("derives red health when required content is missing", () => {
     const health = deriveHealthStatus({
       issues: [],

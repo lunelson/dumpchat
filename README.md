@@ -21,36 +21,36 @@ This project is inspired by [agarwalvishal/claude-chat-exporter](https://github.
 
 1. Install dependencies:
    ```bash
-   bun install
+   pnpm install
    ```
 2. Start dev mode (optional):
 
    ```bash
-   bun run dev
+   pnpm run dev
    ```
 
-   - Chrome target: `bun run dev:chrome`
-   - Firefox target: `bun run dev:firefox`
+   - Chrome target: `pnpm run dev:chrome`
+   - Firefox target: `pnpm run dev:firefox`
 
 ## Build Packages
 
 Build unpacked outputs for both browsers (useful for local verification):
 
 ```bash
-bun run build:all
+pnpm run build:all
 ```
 
 Build and zip for both browsers:
 
 ```bash
-bun run zip:all
+pnpm run zip:all
 ```
 
 Or per browser:
 
 ```bash
-bun run zip:chrome
-bun run zip:firefox
+pnpm run zip:chrome
+pnpm run zip:firefox
 ```
 
 Generated files are written to `.output/`, for example:
@@ -63,7 +63,7 @@ Generated files are written to `.output/`, for example:
 
 1. Build Chrome output:
    ```bash
-   bun run build:chrome
+   pnpm run build:chrome
    ```
 2. Open `chrome://extensions` (or `edge://extensions`).
 3. Enable `Developer mode`.
@@ -74,7 +74,7 @@ Generated files are written to `.output/`, for example:
 
 1. Build Firefox output:
    ```bash
-   bun run build:firefox
+   pnpm run build:firefox
    ```
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click `Load Temporary Add-on...`.
@@ -88,25 +88,25 @@ Note: temporary Firefox add-ons are removed when Firefox restarts.
 
 - bump `package.json` version
 - create a release commit + git tag
-- build and zip both browser targets (`after:bump` hook runs `bun run zip:all`)
+- build and zip both browser targets (`after:bump` hook runs `pnpm run zip:all`)
 - create a GitHub Release and attach zip assets from `.output/`
 
 Run an interactive release:
 
 ```bash
-bun run release
+pnpm run release
 ```
 
 Or CI/non-interactive mode:
 
 ```bash
-bun run release:ci
+pnpm run release:ci
 ```
 
 Dry run (no GitHub release API call):
 
 ```bash
-bun run release:dry
+pnpm run release:dry
 ```
 
 If `GITHUB_TOKEN` is not set, release-it falls back to manual GitHub release flow in the browser.
@@ -121,7 +121,7 @@ One-time setup:
 
 1. Initialize submission secrets/options interactively (creates/updates `.env.submit`):
    ```bash
-   bun run submit:init
+   pnpm run submit:init
    ```
 2. Or copy the template and edit manually:
    ```bash
@@ -133,7 +133,7 @@ Per release:
 
 1. Build store artifacts:
    ```bash
-   bun run zip:all
+   pnpm run zip:all
    ```
 2. Update ZIP paths in `.env.submit` for the version you are publishing:
    ```bash
@@ -143,11 +143,11 @@ Per release:
    ```
 3. Validate auth and config without uploading:
    ```bash
-   bun run submit:dry
+   pnpm run submit:dry
    ```
 4. Submit:
    ```bash
-   bun run submit
+   pnpm run submit
    ```
 
 Important notes:
@@ -159,7 +159,7 @@ Important notes:
 
 Where values come from:
 
-- `CHROME_ZIP` / `FIREFOX_ZIP` / `FIREFOX_SOURCES_ZIP`: produced by `bun run zip:all` in `.output/`.
+- `CHROME_ZIP` / `FIREFOX_ZIP` / `FIREFOX_SOURCES_ZIP`: produced by `pnpm run zip:all` in `.output/`.
 - `CHROME_EXTENSION_ID`: your extension item ID in Chrome Web Store Developer Dashboard (existing listing).
 - `CHROME_CLIENT_ID` / `CHROME_CLIENT_SECRET`: OAuth client created in Google Cloud during Chrome Web Store API setup.
 - `CHROME_REFRESH_TOKEN`: generated from the OAuth flow (OAuth Playground is documented in Chrome's API guide).

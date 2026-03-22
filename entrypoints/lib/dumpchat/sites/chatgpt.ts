@@ -285,12 +285,7 @@ export function isLikelyChatGptTurnCopyButton(button: HTMLButtonElement): boolea
   const dataTestId = normalizeText(button.getAttribute("data-testid") || "").toLowerCase();
   if (dataTestId === "copy-turn-action-button") return true;
   if (dataTestId.includes("copy-code")) return false;
-
-  const label = normalizeText(button.getAttribute("aria-label") || "").toLowerCase();
-  if (!label) return false;
-  if (label.includes("copy code")) return false;
-
-  return label.startsWith("copy");
+  return false;
 }
 
 function getVisibleTurnContainers(config: SiteConfig): HTMLElement[] {
