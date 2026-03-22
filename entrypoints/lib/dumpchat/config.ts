@@ -30,8 +30,7 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
     editButtonSelector: 'button[data-testid="edit-turn-action-button"], button[aria-label*="Edit"]',
     editTextareaSelector:
       'textarea[data-testid="prompt-textarea"], textarea[name="prompt-textarea"], textarea',
-    messageGroupSelector:
-      'article[data-testid^="conversation-turn-"], div[data-testid^="conversation-turn-"]',
+    messageGroupSelector: '[data-testid^="conversation-turn-"]',
   },
   claude: {
     titleSelectors: [

@@ -233,6 +233,42 @@ describe("extraction", () => {
     expect(data.assistantDebug.copyButtonsAfterUserFilter).toBe(1);
   });
 
+  it("extracts chatgpt turns from generic conversation-turn wrappers", async () => {
+    document.body.innerHTML = `
+      <div class="thread-root">
+        <div data-testid="conversation-turn-1">
+          <div data-message-author-role="user">
+            <div class="whitespace-pre-wrap">user prompt from generic wrapper</div>
+          </div>
+          <div aria-label="Your message actions">
+            <button data-testid="copy-turn-action-button" aria-label="Copy message">Copy</button>
+          </div>
+        </div>
+        <article data-testid="conversation-turn-2">
+          <div data-message-author-role="assistant">
+            <div class="markdown">assistant fallback from generic wrapper</div>
+          </div>
+          <div aria-label="Response actions">
+            <button id="assistantGenericCopy" data-testid="copy-turn-action-button" aria-label="Copy response">Copy</button>
+          </div>
+        </article>
+      </div>
+    `;
+
+    const assistantCopy = document.getElementById("assistantGenericCopy");
+    if (!(assistantCopy instanceof HTMLButtonElement)) {
+      throw new Error("assistantGenericCopy button not found");
+    }
+    assistantCopy.addEventListener("click", () => {
+      void navigator.clipboard.writeText("assistant copied from generic wrapper");
+    });
+
+    const data = await collectExportData("chatgpt");
+    expect(data.users).toEqual(["user prompt from generic wrapper"]);
+    expect(data.assistants).toEqual(["assistant copied from generic wrapper"]);
+    expect(data.assistantDebug.copyButtonsAfterUserFilter).toBe(1);
+  });
+
   it("filters perplexity assistant copy button from code-block copy buttons", () => {
     document.body.innerHTML = `
       <div class="bg-base">
