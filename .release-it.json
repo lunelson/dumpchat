@@ -17,6 +17,6 @@
     ]
   },
   "hooks": {
-    "after:bump": "bun run zip:all"
+    "after:bump": "vp run zip:all"
   }
 }
