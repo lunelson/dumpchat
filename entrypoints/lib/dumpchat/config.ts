@@ -39,13 +39,12 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
       "main h1",
     ],
     conversationPath: /^\/chat\//,
-    userMessageSelector: '[data-testid="user-message"], [data-testid="message-user"]',
-    assistantMessageSelector:
-      '.font-claude-response, [data-testid="assistant-message"], [data-testid="message-assistant"]',
+    userMessageSelector: '[data-testid="user-message"]',
+    assistantMessageSelector: ".font-claude-response",
     copyButtonSelector: 'button[data-testid="action-bar-copy"]',
-    editButtonSelector: 'button[aria-label="Edit"], button[aria-label*="Edit"]',
+    editButtonSelector: 'button[aria-label="Edit"]',
     editTextareaSelector: "textarea",
-    messageGroupSelector: '.group, [data-testid="chat-message"]',
+    messageGroupSelector: "div[data-test-render-count]",
   },
   perplexity: {
     titleSelectors: [
@@ -56,9 +55,8 @@ export const SITE_CONFIG: Record<Site, SiteConfig> = {
     conversationPath: /^\/.+/,
     userMessageSelector: '[class~="group/query"] > div > span',
     assistantMessageSelector: 'div[id^="markdown-content-"]',
-    copyButtonSelector:
-      'button[aria-label="Copy Query"], button[aria-label*="Copy"], button[title*="Copy"]',
-    editButtonSelector: 'button[aria-label="Edit Query"]',
+    copyButtonSelector: 'button[aria-label="Copy query" i], button[aria-label="Copy" i]',
+    editButtonSelector: 'button[aria-label="Edit query" i]',
     editTextareaSelector: "textarea",
     messageGroupSelector: "div.bg-base",
   },

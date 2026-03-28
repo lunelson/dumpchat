@@ -1,4 +1,5 @@
 import {
+  filterByConsistentDepth,
   hover,
   interceptClipboard,
   isVisible,
@@ -8,98 +9,78 @@ import {
 } from "../helpers";
 import type { ExportData, Site, SiteConfig } from "../types";
 
+type PerplexityTurn = {
+  role: "user" | "assistant";
+  copyButton: HTMLButtonElement;
+};
+
 export async function collectPerplexityExportData(
   config: SiteConfig,
   site: Site,
 ): Promise<ExportData> {
-  const queryButtons = getPerplexityQueryCopyButtons(document);
-  const assistantNodes = getPerplexityAssistantNodes(document, config);
-  const assistantEntries = assistantNodes.map((node) => ({
-    node,
-    button: findPerplexityAssistantCopyButton(node, config),
-  }));
-  const assistantButtons = assistantEntries
-    .map((entry) => entry.button)
-    .filter((button): button is HTMLButtonElement => !!button);
-  const allCopyButtons = uniqueElements([...queryButtons, ...assistantButtons]);
+  const turns = getPerplexityTurns(config);
+
   const captured: string[] = [];
-  const copiedQueries = new Map<number, string>();
-  const copiedAssistants = new Map<number, string>();
+  const copiedByTurn = new Map<number, string>();
   const stopIntercept = interceptClipboard((text) => {
     const normalized = normalizeText(text);
     if (normalized) captured.push(normalized);
   });
 
   try {
-    for (const [idx, button] of queryButtons.entries()) {
+    for (const [idx, turn] of turns.entries()) {
       const before = captured.length;
-      hover(button);
-      button.click();
+      hover(turn.copyButton);
+      turn.copyButton.click();
       await waitFor(() => captured.length > before, 900, 60);
       const copied = captured[before] || "";
-      if (copied) copiedQueries.set(idx, copied);
-    }
-
-    for (const [idx, entry] of assistantEntries.entries()) {
-      const button = entry.button;
-      if (!button) continue;
-      const before = captured.length;
-      hover(button);
-      button.click();
-      await waitFor(() => captured.length > before, 900, 60);
-      const copied = captured[before] || "";
-      if (copied) copiedAssistants.set(idx, copied);
+      if (copied) copiedByTurn.set(idx, copied);
     }
   } finally {
     stopIntercept();
   }
 
-  let userCopyReplacementsCount = 0;
-  const users = queryButtons
-    .map((button, idx) => {
-      const copied = copiedQueries.get(idx) || "";
-      if (copied) return copied;
-
-      const fallback = extractPerplexityUserTextFromCopyButton(button);
-      if (fallback) userCopyReplacementsCount += 1;
-      return fallback;
-    })
-    .filter((value) => !!value);
-
+  const users: string[] = [];
+  const assistants: string[] = [];
   let usedFallbackCount = 0;
-  let fromButtonFallbackCount = 0;
-  const assistants = assistantEntries
-    .map(({ button, node }, idx) => {
-      const copied = copiedAssistants.get(idx) || "";
-      if (copied) return copied;
 
-      const fallback = extractPerplexityAssistantText(node);
-      if (fallback) {
-        usedFallbackCount += 1;
-        if (button) fromButtonFallbackCount += 1;
-      }
-      return fallback;
-    })
-    .filter((value) => !!value);
+  for (const [idx, turn] of turns.entries()) {
+    const copied = copiedByTurn.get(idx) || "";
 
+    if (turn.role === "user") {
+      const fallback = extractPerplexityUserText(turn.copyButton, config);
+      const value = copied || fallback;
+      if (value) users.push(value);
+      continue;
+    }
+
+    const fallback = extractPerplexityAssistantText(turn.copyButton, config);
+    const value = copied || fallback;
+    if (!copied && fallback) usedFallbackCount += 1;
+    if (value) assistants.push(value);
+  }
+
+  const userTurns = turns.filter((t) => t.role === "user");
+  const assistantTurns = turns.filter((t) => t.role === "assistant");
   const title = readPerplexityTitle(config) || `${site} conversation`;
+
   return {
     title,
     exportedAt: new Date().toISOString(),
     users,
     assistants,
     assistantDebug: {
-      copyButtonsTotal: allCopyButtons.length,
-      copyButtonsVisible: allCopyButtons.length,
-      copyButtonsAfterUserFilter: assistantButtons.length,
-      clipboardCaptures: copiedAssistants.size,
-      filteredByRoleHintCount: queryButtons.length,
-      fallbackCount: assistantEntries.length,
+      copyButtonsTotal: turns.length,
+      copyButtonsVisible: turns.length,
+      copyButtonsAfterUserFilter: assistantTurns.length,
+      clipboardCaptures: captured.length,
+      filteredByRoleHintCount: userTurns.length,
+      fallbackCount: assistantTurns.length,
       usedFallbackCount,
-      fromButtonFallbackCount,
+      fromButtonFallbackCount: 0,
       filteredAsUserMatchCount: 0,
-      userCopyReplacementsCount,
-      emptyCount: Math.max(0, assistantEntries.length - assistants.length),
+      userCopyReplacementsCount: 0,
+      emptyCount: assistantTurns.length - assistants.length,
     },
   };
 }
@@ -117,134 +98,65 @@ export function readPerplexityTitle(config: SiteConfig): string {
   return fromDocument;
 }
 
-function getPerplexityQueryCopyButtons(root: ParentNode): HTMLButtonElement[] {
-  return uniqueElements(
-    Array.from(root.querySelectorAll<HTMLButtonElement>('button[aria-label="Copy Query"]')).filter(
-      (button) => isVisible(button),
-    ),
-  );
-}
-
 export function getPerplexityAssistantCopyButtons(
   root: ParentNode,
-  config: SiteConfig,
+  _config: SiteConfig,
 ): HTMLButtonElement[] {
-  return uniqueElements(
-    getPerplexityAssistantNodes(root, config)
-      .map((node) => findPerplexityAssistantCopyButton(node, config))
-      .filter((button): button is HTMLButtonElement => !!button),
+  return filterByConsistentDepth(
+    uniqueElements(
+      Array.from(root.querySelectorAll<HTMLButtonElement>('button[aria-label="Copy" i]')).filter(
+        (button) => isVisible(button),
+      ),
+    ),
   );
 }
 
 export function isLikelyPerplexityAssistantCopyButton(
   button: HTMLButtonElement,
-  config: SiteConfig,
+  _config: SiteConfig,
 ): boolean {
-  const label = readPerplexityButtonLabel(button);
-  if (!label.includes("copy") || label.includes("query")) return false;
-  if (button.closest("pre, code")) return false;
-
-  const assistantRoot = findPerplexityAssistantRoot(button, config);
-  return !!assistantRoot;
+  const label = normalizeText(button.getAttribute("aria-label") || "").toLowerCase();
+  return label === "copy";
 }
 
-function readPerplexityButtonLabel(button: HTMLButtonElement): string {
-  return normalizeText(
-    button.getAttribute("aria-label") || button.getAttribute("title") || button.textContent || "",
-  ).toLowerCase();
-}
-
-function findPerplexityAssistantRoot(
-  button: HTMLButtonElement,
-  config: SiteConfig,
-): HTMLElement | null {
-  return (
-    getPerplexityAssistantNodes(button.ownerDocument, config).find(
-      (assistantNode) => findPerplexityAssistantCopyButton(assistantNode, config) === button,
-    ) || null
+function getPerplexityTurns(config: SiteConfig): PerplexityTurn[] {
+  const buttons = filterByConsistentDepth(
+    uniqueElements(
+      Array.from(document.querySelectorAll<HTMLButtonElement>(config.copyButtonSelector)).filter(
+        (button) => isVisible(button),
+      ),
+    ),
   );
+
+  return buttons.map((copyButton, index) => {
+    const role = detectPerplexityTurnRole(copyButton, index);
+    return { role, copyButton };
+  });
 }
 
-function extractPerplexityUserTextFromCopyButton(button: HTMLButtonElement): string {
+function detectPerplexityTurnRole(button: HTMLButtonElement, index: number): "user" | "assistant" {
+  const label = normalizeText(button.getAttribute("aria-label") || "").toLowerCase();
+  if (label.includes("query")) return "user";
+  if (label === "copy") return "assistant";
+  return index % 2 === 0 ? "user" : "assistant";
+}
+
+function extractPerplexityUserText(button: HTMLButtonElement, config: SiteConfig): string {
   let current: HTMLElement | null = button;
   while (current) {
-    const userTextNode = current.querySelector<HTMLElement>('[class~="group/query"] > div > span');
-    const value = normalizeText(userTextNode?.innerText || userTextNode?.textContent || "");
-    if (value) return value;
+    const node = current.querySelector<HTMLElement>(config.userMessageSelector);
+    if (node) return normalizeText(node.innerText || node.textContent || "");
     current = current.parentElement;
   }
-
   return "";
 }
 
-function extractPerplexityAssistantText(node: HTMLElement): string {
-  return normalizeText(node.innerText || node.textContent || "");
-}
-
-function getPerplexityAssistantNodes(root: ParentNode, config: SiteConfig): HTMLElement[] {
-  return uniqueElements(
-    Array.from(root.querySelectorAll<HTMLElement>(config.assistantMessageSelector)).filter((node) =>
-      isVisible(node),
-    ),
-  );
-}
-
-function findPerplexityAssistantCopyButton(
-  node: HTMLElement,
-  config: SiteConfig,
-): HTMLButtonElement | null {
-  const actionRow = findPerplexityAssistantActionRow(node, config);
-  if (!actionRow) return null;
-
-  return (
-    Array.from(actionRow.querySelectorAll<HTMLButtonElement>("button"))
-      .filter((button) => isVisible(button))
-      .find((button) => {
-        const label = readPerplexityButtonLabel(button);
-        return label.includes("copy") && !label.includes("query");
-      }) || null
-  );
-}
-
-function findPerplexityAssistantActionRow(
-  node: HTMLElement,
-  config: SiteConfig,
-): HTMLElement | null {
-  let current: HTMLElement | null = node;
+function extractPerplexityAssistantText(button: HTMLButtonElement, config: SiteConfig): string {
+  let current: HTMLElement | null = button;
   while (current) {
-    let sibling = current.nextElementSibling;
-    while (sibling) {
-      if (sibling instanceof HTMLElement && isPerplexityAssistantActionRow(sibling, config)) {
-        return sibling;
-      }
-      sibling = sibling.nextElementSibling;
-    }
+    const node = current.querySelector<HTMLElement>(config.assistantMessageSelector);
+    if (node) return normalizeText(node.innerText || node.textContent || "");
     current = current.parentElement;
   }
-
-  return null;
-}
-
-function isPerplexityAssistantActionRow(node: HTMLElement, config: SiteConfig): boolean {
-  if (node.querySelector(config.assistantMessageSelector)) return false;
-
-  const buttons = Array.from(node.querySelectorAll<HTMLButtonElement>("button")).filter((button) =>
-    isVisible(button),
-  );
-  if (buttons.length === 0) return false;
-
-  return (
-    hasPerplexityActionButton(buttons, "share") &&
-    hasPerplexityActionButton(buttons, "copy") &&
-    hasPerplexityActionButton(buttons, "rewrite")
-  );
-}
-
-function hasPerplexityActionButton(buttons: HTMLButtonElement[], labelFragment: string): boolean {
-  return buttons.some((button) => {
-    const label = readPerplexityButtonLabel(button);
-    if (!label.includes(labelFragment)) return false;
-    if (labelFragment === "copy" && label.includes("query")) return false;
-    return true;
-  });
+  return "";
 }

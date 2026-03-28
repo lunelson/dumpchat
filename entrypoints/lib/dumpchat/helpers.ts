@@ -109,6 +109,47 @@ export function interceptClipboard(onWrite: (text: string) => void): () => void 
   };
 }
 
+/**
+ * Filter copy buttons to only those at a consistent DOM depth.
+ *
+ * Turn-level copy buttons sit at roughly the same nesting level across
+ * all turns. Code-block copy buttons are embedded deeper inside the
+ * response content. By finding the modal (most common) depth and
+ * keeping buttons within a small tolerance, code-block buttons are
+ * naturally excluded without relying on platform-specific wrapper
+ * selectors like `pre` or `code`.
+ */
+export function filterByConsistentDepth<T extends HTMLElement>(elements: T[]): T[] {
+  if (elements.length <= 2) return elements;
+
+  const depths = elements.map(domDepth);
+  const counts = new Map<number, number>();
+  for (const d of depths) {
+    counts.set(d, (counts.get(d) || 0) + 1);
+  }
+
+  let modal = depths[0]!;
+  let best = 0;
+  for (const [d, c] of counts) {
+    if (c > best) {
+      modal = d;
+      best = c;
+    }
+  }
+
+  return elements.filter((_, i) => Math.abs(depths[i]! - modal) <= 2);
+}
+
+function domDepth(node: Node): number {
+  let depth = 0;
+  let current: Node | null = node;
+  while (current) {
+    depth++;
+    current = current.parentNode;
+  }
+  return depth;
+}
+
 export function getVisibleUserNodes(config: SiteConfig): HTMLElement[] {
   const candidates = toElements<HTMLElement>(config.userMessageSelector).filter((node) =>
     isVisible(node),

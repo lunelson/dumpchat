@@ -1,4 +1,5 @@
 import {
+  filterByConsistentDepth,
   hover,
   interceptClipboard,
   isVisible,
@@ -12,14 +13,11 @@ import type { CopyButtonRoleHint, ExportData, Site, SiteConfig } from "../types"
 type ClaudeTurn = {
   root: HTMLElement;
   role: "user" | "assistant";
-  copyButton: HTMLButtonElement | null;
+  copyButton: HTMLButtonElement;
 };
 
 export async function collectClaudeExportData(config: SiteConfig, site: Site): Promise<ExportData> {
   const turns = getClaudeTurns(config);
-  const allCopyButtons = uniqueElements(
-    toElements<HTMLButtonElement>(config.copyButtonSelector).filter((button) => isVisible(button)),
-  );
 
   const captured: string[] = [];
   const copiedByTurn = new Map<number, string>();
@@ -30,12 +28,9 @@ export async function collectClaudeExportData(config: SiteConfig, site: Site): P
 
   try {
     for (const [idx, turn] of turns.entries()) {
-      const button = turn.copyButton;
-      if (!button) continue;
-
       const before = captured.length;
-      hover(button);
-      button.click();
+      hover(turn.copyButton);
+      turn.copyButton.click();
       await waitFor(() => captured.length > before, 900, 60);
       const copied = captured[before] || "";
       if (copied) copiedByTurn.set(idx, copied);
@@ -64,8 +59,8 @@ export async function collectClaudeExportData(config: SiteConfig, site: Site): P
     if (value) assistants.push(value);
   }
 
-  const assistantTurns = turns.filter((turn) => turn.role === "assistant");
-  const userTurns = turns.filter((turn) => turn.role === "user");
+  const userTurns = turns.filter((t) => t.role === "user");
+  const assistantTurns = turns.filter((t) => t.role === "assistant");
   const title = readSimpleTitle(config) || `${site} conversation`;
 
   return {
@@ -74,11 +69,11 @@ export async function collectClaudeExportData(config: SiteConfig, site: Site): P
     users,
     assistants,
     assistantDebug: {
-      copyButtonsTotal: allCopyButtons.length,
-      copyButtonsVisible: allCopyButtons.length,
-      copyButtonsAfterUserFilter: assistantTurns.filter((turn) => !!turn.copyButton).length,
+      copyButtonsTotal: turns.length,
+      copyButtonsVisible: turns.length,
+      copyButtonsAfterUserFilter: assistantTurns.length,
       clipboardCaptures: captured.length,
-      filteredByRoleHintCount: userTurns.filter((turn) => !!turn.copyButton).length,
+      filteredByRoleHintCount: userTurns.length,
       fallbackCount: assistantTurns.length,
       usedFallbackCount,
       fromButtonFallbackCount: 0,
@@ -99,29 +94,27 @@ export function readSimpleTitle(config: SiteConfig): string {
 }
 
 function getClaudeTurns(config: SiteConfig): ClaudeTurn[] {
-  const roots = uniqueElements(
-    toElements<HTMLElement>("div[data-test-render-count]").filter((root) => isVisible(root)),
+  const buttons = filterByConsistentDepth(
+    uniqueElements(
+      toElements<HTMLButtonElement>(config.copyButtonSelector).filter((button) =>
+        isVisible(button),
+      ),
+    ),
   );
 
-  const turns = roots
-    .map((root) => {
-      const role = detectClaudeTurnRole(root);
-      if (role === "unknown") return null;
-      const copyButton = root.querySelector<HTMLButtonElement>(config.copyButtonSelector);
-      return { root, role, copyButton };
-    })
-    .filter((turn): turn is ClaudeTurn => !!turn);
-
-  return turns;
+  return buttons.map((copyButton, index) => {
+    const root =
+      copyButton.closest<HTMLElement>(config.messageGroupSelector) ?? copyButton.parentElement!;
+    const detected = detectClaudeTurnRole(root, config);
+    const role: "user" | "assistant" =
+      detected !== "unknown" ? detected : index % 2 === 0 ? "user" : "assistant";
+    return { root, role, copyButton };
+  });
 }
 
-function detectClaudeTurnRole(root: HTMLElement): CopyButtonRoleHint {
-  const hasUser = !!root.querySelector(
-    '[data-testid="user-message"], [data-testid="message-user"]',
-  );
-  const hasAssistant = !!root.querySelector(
-    '.font-claude-response, [data-testid="assistant-message"], [data-testid="message-assistant"]',
-  );
+function detectClaudeTurnRole(root: HTMLElement, config: SiteConfig): CopyButtonRoleHint {
+  const hasUser = !!root.querySelector(config.userMessageSelector);
+  const hasAssistant = !!root.querySelector(config.assistantMessageSelector);
 
   if (hasUser && !hasAssistant) return "user";
   if (hasAssistant && !hasUser) return "assistant";
@@ -129,9 +122,7 @@ function detectClaudeTurnRole(root: HTMLElement): CopyButtonRoleHint {
 }
 
 function extractClaudeUserText(root: HTMLElement): string {
-  const node = root.querySelector<HTMLElement>(
-    '[data-testid="user-message"], [data-testid="message-user"]',
-  );
+  const node = root.querySelector<HTMLElement>('[data-testid="user-message"]');
   return normalizeText(node?.innerText || node?.textContent || "");
 }
 

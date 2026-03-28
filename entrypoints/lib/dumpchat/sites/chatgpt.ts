@@ -1,32 +1,25 @@
 import {
-  cleanActionLabels,
+  filterByConsistentDepth,
   hover,
   interceptClipboard,
   isVisible,
   normalizeText,
-  toElements,
   uniqueElements,
   waitFor,
 } from "../helpers";
 import type { ExportData, Site, SiteConfig } from "../types";
+
+type ChatGptTurn = {
+  root: HTMLElement;
+  role: "user" | "assistant";
+  copyButton: HTMLButtonElement;
+};
 
 export async function collectChatGptExportData(
   config: SiteConfig,
   site: Site,
 ): Promise<ExportData> {
   const turns = getVisibleChatGptTurns(config);
-  const userTurns = turns.filter((turn) => turn.role === "user").map((turn) => turn.root);
-  const assistantTurns = turns.filter((turn) => turn.role === "assistant").map((turn) => turn.root);
-
-  const users = userTurns
-    .map((turn) => extractUserTextFromTurn(turn, config))
-    .filter((value) => !!value);
-
-  const allCopyButtons = getChatGptTurnCopyButtons(document, config);
-  const assistantButtonsByTurn = assistantTurns.map((turn) =>
-    getChatGptAssistantCopyButton(turn, config),
-  );
-  const assistantButtonCount = assistantButtonsByTurn.filter((button) => !!button).length;
 
   const captured: string[] = [];
   const copiedByTurn = new Map<number, string>();
@@ -36,13 +29,10 @@ export async function collectChatGptExportData(
   });
 
   try {
-    for (let idx = 0; idx < assistantTurns.length; idx += 1) {
-      const button = assistantButtonsByTurn[idx];
-      if (!button) continue;
-
+    for (const [idx, turn] of turns.entries()) {
       const before = captured.length;
-      hover(button);
-      button.click();
+      hover(turn.copyButton);
+      turn.copyButton.click();
       await waitFor(() => captured.length > before, 900, 60);
       const copied = captured[before] || "";
       if (copied) copiedByTurn.set(idx, copied);
@@ -51,45 +41,47 @@ export async function collectChatGptExportData(
     stopIntercept();
   }
 
+  const users: string[] = [];
+  const assistants: string[] = [];
   let usedFallbackCount = 0;
-  let fromButtonFallbackCount = 0;
-  const assistants = assistantTurns.map((turn, idx) => {
+
+  for (const [idx, turn] of turns.entries()) {
     const copied = copiedByTurn.get(idx) || "";
-    if (copied) return copied;
 
-    const domFallback = extractAssistantTextFromTurn(turn, config);
-    if (domFallback) {
-      usedFallbackCount += 1;
-      return domFallback;
+    if (turn.role === "user") {
+      const fallback = extractUserTextFromTurn(turn.root, config);
+      const value = copied || fallback;
+      if (value) users.push(value);
+      continue;
     }
 
-    const button = assistantButtonsByTurn[idx];
-    const buttonFallback = button ? extractAssistantTextFromCopyButton(button) : "";
-    if (buttonFallback) {
-      usedFallbackCount += 1;
-      fromButtonFallbackCount += 1;
-    }
-    return buttonFallback;
-  });
+    const fallback = extractAssistantTextFromTurn(turn.root, config);
+    const value = copied || fallback;
+    if (!copied && fallback) usedFallbackCount += 1;
+    if (value) assistants.push(value);
+  }
 
+  const userTurns = turns.filter((t) => t.role === "user");
+  const assistantTurns = turns.filter((t) => t.role === "assistant");
   const title = readTitle(config, site) || `${site} conversation`;
+
   return {
     title,
     exportedAt: new Date().toISOString(),
     users,
-    assistants: assistants.filter((value) => !!value),
+    assistants,
     assistantDebug: {
-      copyButtonsTotal: allCopyButtons.length,
-      copyButtonsVisible: allCopyButtons.length,
-      copyButtonsAfterUserFilter: assistantButtonCount,
+      copyButtonsTotal: turns.length,
+      copyButtonsVisible: turns.length,
+      copyButtonsAfterUserFilter: assistantTurns.length,
       clipboardCaptures: captured.length,
-      filteredByRoleHintCount: Math.max(0, allCopyButtons.length - assistantButtonCount),
+      filteredByRoleHintCount: userTurns.length,
       fallbackCount: assistantTurns.length,
       usedFallbackCount,
-      fromButtonFallbackCount,
+      fromButtonFallbackCount: 0,
       filteredAsUserMatchCount: 0,
       userCopyReplacementsCount: 0,
-      emptyCount: assistants.filter((value) => !value).length,
+      emptyCount: assistantTurns.length - assistants.filter((v) => !!v).length,
     },
   };
 }
@@ -221,88 +213,33 @@ function extractAssistantTextFromTurn(turn: HTMLElement, config: SiteConfig): st
   );
 }
 
-function extractAssistantTextFromCopyButton(button: HTMLButtonElement): string {
-  const roots: HTMLElement[] = [];
-  const directRoots = [
-    button.closest('[data-testid="assistant-message"]'),
-    button.closest('[data-testid="message-assistant"]'),
-    button.closest('[data-testid="chat-message"]'),
-    button.closest(".group"),
-    button.closest("article"),
-  ];
-
-  for (const node of directRoots) {
-    if (node instanceof HTMLElement && !roots.includes(node)) roots.push(node);
-  }
-
-  for (const root of roots) {
-    const content = root.querySelector<HTMLElement>(
-      '[data-testid="message-content"], .prose, [class*="prose"]',
-    );
-    const raw = normalizeText(
-      (
-        content?.innerText ||
-        content?.textContent ||
-        root.innerText ||
-        root.textContent ||
-        ""
-      ).trim(),
-    );
-    const cleaned = cleanActionLabels(raw);
-    if (cleaned) return cleaned;
-  }
-
-  return "";
-}
-
 export function getChatGptTurnCopyButtons(
   root: ParentNode,
   config: SiteConfig,
 ): HTMLButtonElement[] {
-  const candidates = Array.from(
-    root.querySelectorAll<HTMLButtonElement>(config.copyButtonSelector),
-  ).filter((button) => isVisible(button));
-
-  return uniqueElements(candidates.filter((button) => isLikelyChatGptTurnCopyButton(button)));
-}
-
-function getChatGptAssistantCopyButton(
-  turn: HTMLElement,
-  config: SiteConfig,
-): HTMLButtonElement | null {
-  const buttons = getChatGptTurnCopyButtons(turn, config);
-  const preferred = buttons.find(
-    (button) =>
-      normalizeText(button.getAttribute("data-testid") || "") === "copy-turn-action-button",
+  return filterByConsistentDepth(
+    uniqueElements(
+      Array.from(root.querySelectorAll<HTMLButtonElement>(config.copyButtonSelector)).filter(
+        (button) => isVisible(button),
+      ),
+    ),
   );
-  return preferred || buttons[0] || null;
 }
 
 export function isLikelyChatGptTurnCopyButton(button: HTMLButtonElement): boolean {
-  if (button.closest('[data-message-author-role="assistant"]')) return false;
-  if (button.closest("pre, code")) return false;
-
   const dataTestId = normalizeText(button.getAttribute("data-testid") || "").toLowerCase();
-  if (dataTestId === "copy-turn-action-button") return true;
-  if (dataTestId.includes("copy-code")) return false;
-  return false;
+  return dataTestId === "copy-turn-action-button";
 }
 
-type ChatGptTurn = {
-  root: HTMLElement;
-  role: "user" | "assistant";
-};
-
 function getVisibleChatGptTurns(config: SiteConfig): ChatGptTurn[] {
-  return uniqueElements(
-    toElements<HTMLElement>(config.messageGroupSelector).filter((node) => isVisible(node)),
-  )
-    .map((root) => {
-      const role = getChatGptTurnRole(root, config);
-      if (!role) return null;
-      return { root, role };
-    })
-    .filter((turn): turn is ChatGptTurn => !!turn);
+  const buttons = getChatGptTurnCopyButtons(document, config);
+
+  return buttons.map((copyButton, index) => {
+    const root =
+      copyButton.closest<HTMLElement>(config.messageGroupSelector) ?? copyButton.parentElement!;
+    const role = getChatGptTurnRole(root, config) ?? (index % 2 === 0 ? "user" : "assistant");
+    return { root, role, copyButton };
+  });
 }
 
 function getChatGptTurnRole(turn: HTMLElement, config: SiteConfig): "user" | "assistant" | null {
